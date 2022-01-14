@@ -1,0 +1,49 @@
+#!/usr/bin/env python2
+from __future__ import print_function
+
+import robobo
+import sys
+import signal
+import pickle
+
+from DDPG import DDPGAgent
+from train_DDPG import *
+
+
+def test_controller(controller, max_steps_per_episode=500, episodes=10):
+    # Init simulated environment
+    env = robobo.SimulationRobobo('#0').connect(address='192.168.1.113', port=19997)
+    print('ready')
+
+    for ep in range(episodes):
+        env.play_simulation()
+
+        # Set random orientation of robot
+        steer_robot(env, [random.choice([-1, 1])], millis=np.random.randint(0, 3000))
+        env.sleep(1)
+
+        # Run robot with controller
+        for step in range(max_steps_per_episode):
+            state = get_sensor_state(env)
+            action = controller.select_action(state)
+            steer_robot(env, action)
+
+        env.stop_world()
+        env.wait_for_stop()
+
+
+if __name__ == "__main__":
+    # Boilerplate function to terminate program properly
+    def terminate_program(signal_number, frame):
+        print("Ctrl-C received, terminating program")
+        sys.exit(1)
+
+    signal.signal(signal.SIGINT, terminate_program)
+
+    # load trained controller
+    with open('DDPG_controller.pkl', 'rb') as file:
+        controller = pickle.load(file)
+
+    # optimize controller with DDPG
+    test_controller(controller, max_steps_per_episode=200, episodes=20)
+

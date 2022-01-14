@@ -49,21 +49,24 @@ class ReplayBuffer:
 
     def sample(self):
         # Sample batch of experience from replay buffer
-        batch_size = min(self._batch_size, len(self._buffer))
-        experience = random.sample(self._buffer, k=batch_size)
+        if len(self._buffer) < self._batch_size:
+            experience = self._buffer
+        else:
+            experience = random.sample(self._buffer, k=self._batch_size - 1)
+            experience.append(self._buffer[-1])  # Always learn from last experience
 
         states, actions, rewards, next_states = zip(*experience)
-        states = torch.FloatTensor(np.array(states))
-        actions = torch.FloatTensor(np.array(actions))
-        rewards = torch.FloatTensor(np.array(rewards))
-        next_states = torch.FloatTensor(np.array(next_states))
+        states = torch.Tensor(np.array(states))
+        actions = torch.Tensor(np.array(actions))
+        rewards = torch.Tensor(np.array(rewards))
+        next_states = torch.Tensor(np.array(next_states))
 
         return states, actions, rewards, next_states
 
 
 class DDPGAgent:
     def __init__(self, num_inputs=5, num_hidden=(), num_actions=2, actor_lrate=1e-4, critic_lrate=1e-3,
-                 gamma=0.9, tau=1e-2, max_replay_buffer_size=1028, replay_size=128):
+                 gamma=0.9, tau=1e-2, max_replay_buffer_size=2048, replay_size=128):
         # Hyper-parameters
         self._num_inputs = num_inputs
         self._num_actions = num_actions
