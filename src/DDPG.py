@@ -1,11 +1,8 @@
 import numpy as np
 import random
-
 import torch
 from torch import nn, optim
 from torch.autograd import Variable
-import torch.nn.functional as F
-
 from collections import deque
 
 
@@ -28,12 +25,11 @@ class FCNN(nn.Module):
     def forward(self, x):
         # Forward pass through network
         for layer in self._layers[:-1]:
-            x = F.relu(layer(x))
+            x = torch.sigmoid(layer(x))
         out = self._layers[-1](x)
 
         if self._role == 'actor':
             out = torch.tanh(out)
-
         return out
 
 
@@ -53,7 +49,7 @@ class ReplayBuffer:
             experience = self._buffer
         else:
             experience = random.sample(self._buffer, k=self._batch_size - 1)
-            experience.append(self._buffer[-1])  # Always learn from last experience
+            experience.append(self._buffer[-1])  # Always learn from last experience!
 
         states, actions, rewards, next_states = zip(*experience)
         states = torch.Tensor(np.array(states))
@@ -66,7 +62,7 @@ class ReplayBuffer:
 
 class DDPGAgent:
     def __init__(self, num_inputs=5, num_hidden=(), num_actions=2, actor_lrate=1e-4, critic_lrate=1e-3,
-                 gamma=0.9, tau=1e-2, max_replay_buffer_size=2048, replay_size=128):
+                 gamma=0.9, tau=1e-2, max_replay_buffer_size=4096, replay_size=96):
         # Hyper-parameters
         self._num_inputs = num_inputs
         self._num_actions = num_actions

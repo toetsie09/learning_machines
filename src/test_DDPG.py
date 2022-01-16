@@ -10,23 +10,20 @@ from DDPG import DDPGAgent
 from train_DDPG import *
 
 
-def test_controller(controller, max_steps_per_episode=500, episodes=10):
+def test_controller(controller, max_steps=500, episodes=10):
     # Init simulated environment
     env = robobo.SimulationRobobo('#0').connect(address='192.168.1.113', port=19997)
-    print('ready')
 
     for ep in range(episodes):
         env.play_simulation()
-
-        # Set random orientation of robot
-        steer_robot(env, [random.choice([-1, 1])], millis=np.random.randint(0, 3000))
-        env.sleep(1)
+        reset_robot(env)
 
         # Run robot with controller
-        for step in range(max_steps_per_episode):
+        for step in range(max_steps):
             state = get_sensor_state(env)
             action = controller.select_action(state)
-            steer_robot(env, action)
+            action += np.random.normal(0, 0.08, action.shape)
+            control_robot(env, action)
 
         env.stop_world()
         env.wait_for_stop()
@@ -45,5 +42,5 @@ if __name__ == "__main__":
         controller = pickle.load(file)
 
     # optimize controller with DDPG
-    test_controller(controller, max_steps_per_episode=200, episodes=20)
+    test_controller(controller, max_steps=500, episodes=20)
 
