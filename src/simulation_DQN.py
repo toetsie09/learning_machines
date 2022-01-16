@@ -16,6 +16,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DEVICE = torch.device('cpu')
 # print('current device:', device)
 BATCH_SIZE = 5
+N_ACTIONS = 4
+N_INPUTS = 8
 GAMMA = 0.9
 
 def initialize_NN(input_size, num_actions, DEVICE):
@@ -61,8 +63,8 @@ def optimize_model(policy_network, target_network, memory_structure, optimizer):
     batch = Transition(*zip(*transitions))
 
     # Concatenate the current states, actions and rewards
-    state_batch = torch.cat(batch.state).reshape(5,5)
-    next_states = torch.cat(batch.next_state).reshape(5,5)
+    state_batch = torch.cat(batch.state).reshape(BATCH_SIZE, N_INPUTS)
+    next_states = torch.cat(batch.next_state).reshape(BATCH_SIZE, N_INPUTS)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
 
@@ -95,12 +97,9 @@ def get_q_values(target_network, num_states: int):
 def main(num_episodes: int, num_steps: int):
     ## Connect to robot
     controller = Robobo_Controller()
-
-    n_inputs = 5 # I only used the 5 forward facing sensors
-    n_actions = 3
     steps_done = 0
 
-    policy_net, target_net = initialize_NN(n_inputs, n_actions, DEVICE)
+    policy_net, target_net = initialize_NN(N_INPUTS, N_ACTIONS, DEVICE)
     optimizer = optim.Adam(policy_net.parameters())
 
     # for i in range(5):
@@ -119,23 +118,32 @@ def main(num_episodes: int, num_steps: int):
     for i_episode in range(num_episodes):
         memory = ReplayMemory()
 
-        current_state = controller.get_state()
+        current_state = controller.get_state(True)
 
         for t_steps in range(num_steps):
+            start_position = controller.get_position()
+            print(start_position)
             # Select and perform an action
-            action = controller.select_action(target_net, DEVICE, n_actions, current_state, steps_done)
+            action = controller.select_action(target_net, DEVICE, N_ACTIONS, current_state, steps_done)
+            print('action:', action)
 
             controller.take_action(action)
+            end_position = controller.get_position()
             steps_done += 1
-            next_state = controller.get_state()
-            collision = controller.detect_collision(next_state)
+            next_state = controller.get_state(as_tensor=False)
+            collision, front_bool, back_bool = controller.detect_collision(next_state)
+            print('collision:', collision)
+            distance = controller.distance_traveled(start_position, end_position)
+            print('distance traveled', distance)
 
-            reward = controller.get_reward(collision)
+            reward = controller.get_reward(collision, distance, action, front_bool, back_bool)
+            print('reward:', reward)
 
             # if collision:
             #     next_state = None
 
             # Store the transition in memory
+            next_state = torch.Tensor(np.asarray(next_state))
             memory.push(current_state, action, next_state, reward)
 
             # Move to the next state
@@ -152,17 +160,12 @@ def main(num_episodes: int, num_steps: int):
                 optimizer=optimizer
             )
 
-            if collision:
-                controller.reset_simulation()
-                break
-
-
         # Update the target network, copying all weights and biases in DQN
         target_net.load_state_dict(policy_net.state_dict())
     controller.terminate_simulation()
     
 if __name__ == "__main__":
     # environment = environment_setup()
-    n_episodes = 20
+    n_episodes = 100
     n_steps = 100
     main(n_episodes, n_steps)
