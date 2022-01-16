@@ -10,9 +10,14 @@ from DDPG import DDPGAgent
 from train_DDPG import *
 
 
-def test_controller(controller, max_steps=500, episodes=10):
-    # Init simulated environment
-    env = robobo.SimulationRobobo('#0').connect(address='192.168.1.113', port=19997)
+def test_controller(controller, env_type='simulation', max_steps=500, episodes=10):
+    # Init simulated or hardware environment
+    if env_type == 'simulation':
+        env = robobo.SimulationRobobo('#0').connect(address='192.168.1.113', port=19997)
+    elif env_type == 'hardware':
+        env = robobo.HardwareRobobo(camera=False).connect(address="<ADDRESS HERE>")  # TODO: update address
+    else:
+        raise Exception('env_type %s not supported' % env_type)
 
     for ep in range(episodes):
         env.play_simulation()
@@ -22,7 +27,7 @@ def test_controller(controller, max_steps=500, episodes=10):
         for step in range(max_steps):
             state = get_sensor_state(env)
             action = controller.select_action(state)
-            action += np.random.normal(0, 0.08, action.shape)
+            action += np.random.normal(0, 0.08, action.shape)  # to fix stuckiness
             control_robot(env, action)
 
         env.stop_world()
@@ -39,8 +44,7 @@ if __name__ == "__main__":
 
     # load trained controller
     with open('DDPG_controller.pkl', 'rb') as file:
-        controller = pickle.load(file)
+        agent = pickle.load(file)
 
     # optimize controller with DDPG
-    test_controller(controller, max_steps=500, episodes=20)
-
+    test_controller(agent, env_type='simulation', max_steps=500, episodes=20)
