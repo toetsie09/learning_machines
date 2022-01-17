@@ -17,6 +17,10 @@ class Calibrator:
             self._multip = data[0]
             self._params = data[1:]
 
+    @property
+    def duration_multiplier(self):
+        return self._multip
+
     @staticmethod
     def _to_data_matrix(x):
         """ Transforms a sequence of values into a data matrix.
@@ -69,10 +73,10 @@ class Calibrator:
             args
             hardware_values: hardware sensor values obtained through env.read_irs()
 
-            returns: (duration_multiplier, corrected_sensor_values)
+            returns: corrected ir-sensor values
         """
         X = self._to_data_matrix(hardware_values)
-        return self._multip, X.dot(self._params)
+        return X.dot(self._params)
 
 
 if __name__ == "__main__":
@@ -81,11 +85,11 @@ if __name__ == "__main__":
     hardware_dists = np.loadtxt('sensor_calib_hardware.out')
 
     # Create mapping
-    calib = Calibrator()
-    calib.fit(simulated_dists, hardware_dists)
-    calib.save('calib_params.out')
+    c = Calibrator()
+    c.fit(simulated_dists, hardware_dists)
+    c.save('calib_params.out')
 
-    _, corrected_dists = calib.correct_sensors(hardware_dists)  # idx=1: corrected sensor values
+    corrected_dists = c.correct_sensors(hardware_dists)
 
     # Plot results
     plt.plot(np.linspace(0, 1, len(simulated_dists)), simulated_dists[::-1], c='C4', label='simulated')
