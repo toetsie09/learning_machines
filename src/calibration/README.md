@@ -34,3 +34,6 @@ c = Calibrator('calib_params.out')
 duration_multiplier = c.duration_multiplier
 corrected_ir_values = c.correct_sensors(hardware_ir_values)
 ```
+
+Output:<br>
+![alt text](https://i.imgur.com/4KQSAfk.png)
