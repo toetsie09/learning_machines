@@ -28,8 +28,9 @@ If all went well, a file `calib_params.out` is created. This file contains model
 from calibrate_robobo import Calibrator
 
 ...
-hardware_ir_values = env.read_irs()
+hardware_ir_values = hardware_env.read_irs()
 
 c = Calibrator('calib_params.out')
-duration_multiplier, corrected_ir_values = c.correct_sensors(hardware_ir_values)
+duration_multiplier = c.duration_multiplier
+corrected_ir_values = c.correct_sensors(hardware_ir_values)
 ```
