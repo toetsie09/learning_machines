@@ -71,6 +71,9 @@ class DDPGAgent:
 
         # Store experience in replay buffer
         self._replay_buffer = ReplayBuffer(max_replay_buffer_size, replay_size)
+        self._rewards = []
+        self._train_ep_reward = []
+        self._train_ep_duration = []
 
         # Actor, Critic and Target networks
         self._actor = FCNN(num_inputs, num_hidden, num_actions, role='actor')
@@ -88,6 +91,7 @@ class DDPGAgent:
 
     def save_experience(self, state, action, reward, next_state):
         self._replay_buffer.push(state, action, reward, next_state)
+        self._rewards.append(reward)
 
     def select_action(self, state):
         # Infer action using Actor
@@ -127,3 +131,11 @@ class DDPGAgent:
 
         for target_p, critic_p in zip(self._critic_target.parameters(), self._critic.parameters()):
             target_p.data.copy_(critic_p.data * self._tau + target_p.data * (1.0 - self._tau))
+
+    def save_episode_stats(self):
+        self._train_ep_reward.append(np.mean(self._rewards))
+        self._train_ep_duration.append(len(self._rewards))
+        self._rewards = []
+
+    def training_stats(self):
+        return self._train_ep_reward, self._train_ep_duration
