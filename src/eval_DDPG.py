@@ -75,7 +75,7 @@ def eval_controller(controller, env_type='simulation', randomize_arena=False, ma
         motion_smoothness.append(np.exp(-action_mad))
 
         # How far did I travel
-        path_length = np.sum(np.linalg.norm(np.diff(positions), axis=1))
+        path_length = np.sum(np.linalg.norm(np.diff(positions, axis=0), axis=1))
         distance_travelled.append(path_length)
 
     metrics = {'collision_rate': np.mean(collisions),
