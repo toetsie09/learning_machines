@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 
 class Calibrator:
     """ Implements a calibration model (y = a*x + b*x^2 + c*e^x + d) to
-        correct sensory measurements of the Robobo robot to match the
-        simulated sensory values the robot is trained on.
+        correct sensory IR measurements of the Robobo robot to match the
+        simulated distance values the robot is trained on.
     """
     def __init__(self, param_file=''):
         self._multip = 1.0
@@ -60,6 +60,11 @@ class Calibrator:
         print("Mapping parameters:", self._params)
 
     def save(self, path):
+        """ Saves the model parameters and duration multiplier to a file
+
+            args
+            str path: filename of the savefile
+        """
         if self._params is None:
             raise Exception('Lets fit the calibration model first shall we?')
 
