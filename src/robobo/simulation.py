@@ -340,3 +340,85 @@ class SimulationRobobo(Robobo):
                                         [],[],[],bytearray(),vrep.simx_opmode_blocking)
         )
         return ints[0]
+
+    # ----------------
+
+    def reset_scene(self):
+        path_robot = 'C:/Program Files/V-REP3/V-REP_PRO_EDU/models/robots/mobile/Robobo_Model.ttm'
+        path_scene = 'C:/Program Files/V-REP3/V-REP_PRO_EDU/scenes/OBS_arena.ttt'
+
+        vrep.unwrap_vrep(
+            vrep.simxCloseScene(self._clientID, vrep.simx_opmode_blocking)
+        )
+        
+        self.wait_for_ping()
+
+        vrep.unwrap_vrep(
+            vrep.simxLoadScene(self._clientID, path_scene, False, vrep.simx_opmode_blocking)
+        )
+        self.wait_for_ping()
+        # vre.unwrapsimxLoadModel(clientID, modelPathAndName, options, operationMode)
+
+    def reset_robot(self, new_position=[0.0, 0.0, 0.0]):
+        components =    [self._RightMotor, self._LeftMotor, self._IrBackC, self._IrFrontC, self._IrFrontLL, self._IrFrontRR, self._IrBackL, 
+                        self._IrBackLFloor, self._IrBackR, self._IrBackRFloor, self._IrFrontL, self._IrFrontLFloor, self._IrFrontR, self._IrFrontRFloor,
+                        self._TiltMotor, self._PanMotor, self._FrontalCamera]
+
+        vrep.simxSetObjectPosition(self._clientID, self._Robobo, -1, new_position, vrep.simx_opmode_blocking)
+
+        for comp in components:
+            vrep.unwrap_vrep(
+                vrep.simxSetObjectPosition(self._clientID, comp, self._Robobo, new_position, vrep.simx_opmode_blocking)
+            )
+
+    def randomize_arena(self, x_rng=(-1.8, 0.025), y_rng=(-0.125, 1.725), z=0.25, safe_space=0.4, n_objects=2):
+            # Center of the arena to place robot into
+            center = np.array([np.mean(x_rng), np.mean(y_rng)])
+
+            placed_objects = []
+            obj_names = ['ConcretBlock' + str(i) for i in range(12)]         
+
+            # Remove all objects from the arena
+            for object in obj_names:
+                handle = self._vrep_get_object_handle(object, vrep.simx_opmode_blocking)
+
+                # randomize position
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectPosition(self._clientID, handle, -1, [-5, 0, z],
+                                            vrep.simx_opmode_oneshot)
+                )             
+
+            for object in obj_names[0:n_objects]:
+                valid_pos = False
+                # Place the obstacle somewhere within the arena (but not the center)
+                while not valid_pos:
+                    x = np.random.uniform(*x_rng)
+                    y = np.random.uniform(*y_rng)
+                    if np.linalg.norm(np.array([x, y]) - center) > safe_space:
+                        if len(placed_objects) == 0:
+                            valid_pos = True
+                        else:
+                            proximity = False
+                            for placed_obj in placed_objects:
+                                if np.linalg.norm(np.array([x, y]) - placed_obj) < safe_space:
+                                    proximity = True
+                            if not proximity:
+                                valid_pos = True
+
+                r = np.random.uniform(-np.pi, np.pi)
+
+                # Get handle from V-REP
+                handle = self._vrep_get_object_handle(object, vrep.simx_opmode_blocking)
+
+                # randomize position
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectPosition(self._clientID, handle, -1, [x, y, z],
+                                            vrep.simx_opmode_oneshot)
+                )
+                # randomize orientation
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectOrientation(self._clientID, handle, -1, [0, 0, r],
+                                                vrep.simx_opmode_oneshot)
+                )
+
+                placed_objects.append(np.asarray([x, y]))
