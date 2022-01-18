@@ -121,10 +121,14 @@ def main(num_episodes: int, num_steps: int):
             # Reverse until the front sensors are clear when the robot gets stuck
             if stuck_count > 5:
                 print('Robot is stuck, fixing this now\n')
+                reverse_counter = 0
                 while not front_bool:
+                    if reverse_counter > 6:
+                        break
                     controller.rob.move(-5, -5, 2000)
                     state = controller.get_state(False)
                     _, front_bool, _ = controller.detect_collision(state)
+                    reverse_counter += 1
                 reset_count += 1
 
             start_position = controller.get_position()

@@ -27,7 +27,7 @@ class Robobo_Controller():
     def select_action(self, target_network, device, n_actions, state, steps_done):
         EPS_START = 1.0
         EPS_END = 0.1
-        EPS_DECAY = 15000
+        EPS_DECAY = 5000
         eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
 
         e_greedy = np.random.choice(['explore', 'exploit'], p=[eps_threshold, 1-eps_threshold])
@@ -44,6 +44,7 @@ class Robobo_Controller():
             2: 150,
             3: 500
         }
+        
         if front_bool:
             action_reward = 0.2 if action.item() == 4 else 1.2 # punish moving backwards when the front is clear
         else:
