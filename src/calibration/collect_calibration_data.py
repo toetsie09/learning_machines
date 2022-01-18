@@ -37,6 +37,7 @@ def measure_sensors(env, env_type='simulation', samples=50):
         # Register several measurements at each position
         mean_reading = np.mean([float(env.read_irs()[5]) for _ in range(samples)])
         sensor_readings.append(mean_reading)
+    print('Ouch')
 
     # Stop sim (if enabled)
     if env_type == 'simulation':
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, terminate_program)
 
     IP_ADDR = '192.168.1.113'  # TODO: update address when changing networks!
-    ENV_TYPE = 'simulation'  # or 'hardware'
+    ENV_TYPE = 'hardware'  # or 'simulation'
 
     if ENV_TYPE == 'simulation':
         input('V-REP open with calibration_scene.ttt loaded? (press ENTER)')
