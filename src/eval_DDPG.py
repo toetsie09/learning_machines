@@ -7,19 +7,11 @@ import signal
 import pickle
 import numpy as np
 
-from train_DDPG import reset_robot, control_robot, get_sensor_state, has_collided
+from train_DDPG import RoboboEnv, to_robobo_commands
 from pprint import pprint
 
 
-def eval_controller(controller, env_type='simulation', randomize_arena=False, max_steps=500, episodes=10):
-    # Init simulated or hardware environment
-    if env_type == 'simulation':
-        env = robobo.SimulationRobobo('#0').connect(address='192.168.1.113', port=19997)
-    elif env_type == 'hardware':
-        env = robobo.HardwareRobobo(camera=False).connect(address="<ADDRESS HERE>")  # TODO: update address
-    else:
-        raise Exception('env_type %s not supported' % env_type)
-
+def eval_controller(env, controller, env_type='simulation', randomize_arena=False, max_steps=500, episodes=10):
     # Define statistics
     collisions = []
     time_to_collision = []
@@ -31,50 +23,44 @@ def eval_controller(controller, env_type='simulation', randomize_arena=False, ma
         # Record stats during episode
         collision = 0
         collision_time = episodes
-        actions_taken = []
-        positions = []
+        positions, actions = [], []
 
-        # (Optionally) Start V-REP
-        if env_type == 'simulation':
-            if randomize_arena:
-                env.randomize_arena()
-            env.play_simulation()
-            reset_robot(env)
-
-        # Control robot with policy
+        env.start()
         for step in range(max_steps):
-            state = get_sensor_state(env)
+            # Observe state
+            state = env.get_sensor_state()
+            state[:2] = state[:2] * 0.0  # Bugfix: distance estimation of rear sensors
 
+            if env.is_simulation:
+                positions.append(env.robot_position())
+
+            # Select action greedily (add noise to fix stuck robot)
             action = controller.select_action(state)
-            actions_taken.append(action)
+            action2 = action + np.random.normal(0, 0.1, action.shape)
+            actions.append(action)
 
-            action += np.random.normal(0, 0.08, action.shape)  # to fix stuckiness
-            control_robot(env, action)
+            # Perform action
+            env.move_robot(*to_robobo_commands(action2))
 
-            if env_type == 'simulation':
-                positions.append(env.position())
-
-            if has_collided(env, d_min=0.01):
+            # End if collision
+            if env.has_collided(d_min=0.01)[0]:
                 collision = 1
                 collision_time = step
                 break
+        env.stop()
 
-        # (Optionally) Stop V-REP
-        if env_type == 'simulation':
-            env.stop_world()
-            env.wait_for_stop()
-
-        # Did I collide?
+        # Count scratches
         collisions.append(collision)
 
-        # Time-to-collision
+        # How long was it going for?
         time_to_collision.append(collision_time)
 
-        # How smooth was my movement
-        action_mad = np.mean(np.absolute(np.diff(actions_taken, axis=0)))
-        motion_smoothness.append(np.exp(-action_mad))
+        # How smooth were its movements?
+        action_mad = np.mean(np.absolute(np.diff(actions, axis=0)))
+        avg_smoothness = np.exp(-action_mad)
+        motion_smoothness.append(avg_smoothness)
 
-        # How far did I travel
+        # How far did it travel over the course of the episode?
         path_length = np.sum(np.linalg.norm(np.diff(positions, axis=0), axis=1))
         distance_travelled.append(path_length)
 
@@ -94,10 +80,11 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, terminate_program)
 
     # load trained controller from pickled checkpoint
-    with open('models/Task1_DDPG_s=5_h=24-8.pkl', 'rb') as file:
+    with open('models/Task1_DDPG_s=5_h=24.pkl', 'rb') as file:
         agent = pickle.load(file)
 
     # optimize controller with DDPG
-    scores = eval_controller(agent, env_type='simulation_random', randomize_arena=True,
-                             max_steps=1000, episodes=1)
+    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='#0', ip='192.168.1.113')
+    scores = eval_controller(robobo, agent, env_type='simulation', randomize_arena=True,
+                             max_steps=1000, episodes=5)
     pprint(scores)
