@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.neural_network import MLPRegressor
 
 
 class Calibrator:
@@ -31,7 +32,7 @@ class Calibrator:
             returns: ndarray
         """
         ones = np.ones(len(x))
-        return np.array([x, x ** 2, np.exp(x), ones]).T
+        return np.array([x, x ** 2, x ** 3, np.sqrt(x), ones]).T
 
     def fit(self, simulated_dists, hardware_dists):
         """ Fits the model to the hardware sensory data to map them to the
@@ -59,6 +60,7 @@ class Calibrator:
 
         # Fit polynomial to map from hardware signal to simulated signal
         X = self._to_data_matrix(interp_hardware_dists)
+
         y = np.array(simulated_dists)
         self._params = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)  # (X^T.X)^-1.X^T.y
         print("Mapping parameters:", self._params)
@@ -98,11 +100,11 @@ if __name__ == "__main__":
     c.fit(simulated_dists, hardware_dists)
     c.save('calib_params.out')
 
-    corrected_dists = c.correct_sensors(hardware_dists)
+    corrected_dists = c.correct_sensors(hardware_dists[:, 0])
 
     # Plot results
-    plt.plot(np.linspace(0, 1, len(simulated_dists)), simulated_dists[::-1], c='C4', label='simulated')
-    plt.plot(np.linspace(0, 1, len(hardware_dists)), hardware_dists[::-1], c='C0', label='hardware')
+    plt.plot(np.linspace(0, 1, len(simulated_dists)), simulated_dists[:, 0][::-1], c='C4', label='simulated')
+    plt.plot(np.linspace(0, 1, len(hardware_dists)), hardware_dists[:, 0][::-1], c='C0', label='hardware')
     plt.plot(np.linspace(0, 1, len(corrected_dists)), corrected_dists[::-1], c='C1', label='corrected hardware')
     plt.xlabel('Actual distance to obstacle (base lengths)')
     plt.ylabel('Sensor measurement (a.u.)')
