@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.neural_network import MLPRegressor
 
 
 class Calibrator:
@@ -100,11 +99,11 @@ if __name__ == "__main__":
     c.fit(simulated_dists, hardware_dists)
     c.save('calib_params.out')
 
-    corrected_dists = c.correct_sensors(hardware_dists[:, 0])
+    corrected_dists = c.correct_sensors(np.mean(hardware_dists, axis=1))
 
     # Plot results
-    plt.plot(np.linspace(0, 1, len(simulated_dists)), simulated_dists[:, 0][::-1], c='C4', label='simulated')
-    plt.plot(np.linspace(0, 1, len(hardware_dists)), hardware_dists[:, 0][::-1], c='C0', label='hardware')
+    plt.plot(np.linspace(0, 1, len(simulated_dists)), np.mean(simulated_dists, axis=1)[::-1], c='C4', label='simulated')
+    plt.plot(np.linspace(0, 1, len(hardware_dists)), np.mean(hardware_dists, axis=1)[::-1], c='C0', label='hardware')
     plt.plot(np.linspace(0, 1, len(corrected_dists)), corrected_dists[::-1], c='C1', label='corrected hardware')
     plt.xlabel('Actual distance to obstacle (base lengths)')
     plt.ylabel('Sensor measurement (a.u.)')

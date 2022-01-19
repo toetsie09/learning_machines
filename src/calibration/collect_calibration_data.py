@@ -31,13 +31,13 @@ def get_calibration_data(env, env_type='simulation', samples=25):
     # Move until collision
     sensor_readings = []
     while not has_collided(env, env_type):
-        env.move(3, 3, 200)
+        env.move(3, 3, 350)
         env.sleep(1)
 
         # Register several measurements at each position
         readings = [float(env.read_irs()[5]) for _ in range(samples)]
         sensor_readings.append(readings)
-    #env.talk('Ouch')
+    env.talk('Ouch')
 
     # Stop sim (if enabled)
     if env_type == 'simulation':
@@ -50,7 +50,7 @@ def get_calibration_data(env, env_type='simulation', samples=25):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, terminate_program)
 
-    IP = '192.168.43.151'  # TODO: update address when changing networks!
+    IP = '192.168.0.108'  # TODO: update address when changing networks!
     ENV_TYPE = 'simulation'
 
     if ENV_TYPE == 'simulation':
