@@ -23,7 +23,7 @@ def has_collided(env, env_type, simulation_thres=0.01, hardware_thres=0.99):
     return any(collisions)
 
 
-def measure_sensors(env, env_type='simulation', samples=50):
+def get_calibration_data(env, env_type='simulation', samples=50):
     # Start simulation (if enabled)
     if env_type == 'simulation':
         env.play_simulation()
@@ -35,8 +35,8 @@ def measure_sensors(env, env_type='simulation', samples=50):
         env.sleep(1)
 
         # Register several measurements at each position
-        mean_reading = np.mean([float(env.read_irs()[5]) for _ in range(samples)])
-        sensor_readings.append(mean_reading)
+        readings = [float(env.read_irs()[5]) for _ in range(samples)]
+        sensor_readings.append(readings)
     print('Ouch')
 
     # Stop sim (if enabled)
@@ -50,21 +50,21 @@ def measure_sensors(env, env_type='simulation', samples=50):
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, terminate_program)
 
-    IP_ADDR = '192.168.1.113'  # TODO: update address when changing networks!
+    IP = '192.168.1.113'  # TODO: update address when changing networks!
     ENV_TYPE = 'hardware'  # or 'simulation'
 
     if ENV_TYPE == 'simulation':
         input('V-REP open with calibration_scene.ttt loaded? (press ENTER)')
-        env = robobo.SimulationRobobo().connect(address=IP_ADDR, port=19997)
+        env = robobo.SimulationRobobo().connect(address=IP, port=19997)
 
     elif ENV_TYPE == 'hardware':
         input('\nRobobo placed 1x its length from a wall? (press ENTER)')
-        env = robobo.HardwareRobobo(camera=False).connect(address=IP_ADDR)
+        env = robobo.HardwareRobobo(camera=False).connect(address=IP)
     else:
         raise Exception('ENV_TYPE {} not supported'.format(ENV_TYPE))
 
     # Record distances at regular time-intervals
-    dists = measure_sensors(env, env_type=ENV_TYPE)
+    dists = get_calibration_data(env, env_type=ENV_TYPE)
     np.savetxt('sensor_calib_{}.out'.format(ENV_TYPE), dists)
 
 

@@ -43,6 +43,10 @@ class Calibrator:
 
             returns: None
         """
+        # Take average of samples within step
+        simulated_dists = np.mean(simulated_dists, axis=1)
+        hardware_dists = np.mean(hardware_dists, axis=1)
+
         # Compute duration multiplier to speed/slow-down hardware robot
         self._multip = len(hardware_dists) / len(simulated_dists)
         print("\nDuration multiplier:", self._multip)
