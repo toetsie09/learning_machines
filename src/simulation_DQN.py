@@ -1,33 +1,41 @@
 import math
 import random
+from turtle import back
 import numpy as np
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from matplotlib import pyplot as plt
-import seaborn as sns
 
 from torch import Tensor
 
 from DQN import DQN, ReplayMemory, Transition, Robobo_Controller
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DEVICE = torch.device('cpu')
 # print('current device:', device)
 BATCH_SIZE = 5
+N_ACTIONS = 3
+N_INPUTS = 5
 GAMMA = 0.9
 
 def initialize_NN(input_size, num_actions, DEVICE):
-    # Get screen size so that we can initialize layers correctly based on shape
-    # returned from AI gym. Typical dimensions at this point are close to 3x40x90
-    # which is the result of a clamped and down-scaled render buffer in get_screen()
     policy = DQN(input_size, num_actions, DEVICE).to(DEVICE)
     target = DQN(input_size, num_actions, DEVICE).to(DEVICE)
     target.load_state_dict(policy.state_dict())
     target.eval()
     return policy, target
 
+def save_model(PATH, model):
+    torch.save(model.state_dict(), PATH)
+
+def load_model(PATH, input_size, num_actions, DEVICE):
+    model = DQN(input_size, num_actions, DEVICE).to(DEVICE)
+    model.load_state_dict(torch.load(PATH))
+    model.eval()
+    return model
 
 def compute_loss(output, expected_output):
     """ Compute Huber loss """
@@ -61,8 +69,8 @@ def optimize_model(policy_network, target_network, memory_structure, optimizer):
     batch = Transition(*zip(*transitions))
 
     # Concatenate the current states, actions and rewards
-    state_batch = torch.cat(batch.state).reshape(5,5)
-    next_states = torch.cat(batch.next_state).reshape(5,5)
+    state_batch = torch.cat(batch.state).reshape(BATCH_SIZE, N_INPUTS)
+    next_states = torch.cat(batch.next_state).reshape(BATCH_SIZE, N_INPUTS)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
 
@@ -95,54 +103,58 @@ def get_q_values(target_network, num_states: int):
 def main(num_episodes: int, num_steps: int):
     ## Connect to robot
     controller = Robobo_Controller()
-
-    n_inputs = 5 # I only used the 5 forward facing sensors
-    n_actions = 3
     steps_done = 0
 
-    policy_net, target_net = initialize_NN(n_inputs, n_actions, DEVICE)
+    policy_net, target_net = initialize_NN(N_INPUTS, N_ACTIONS, DEVICE)
     optimizer = optim.Adam(policy_net.parameters())
 
-    # for i in range(5):
-    #     controller.move_straight()
+    reset_data = []
 
-    #     current_state = controller.get_state()
-    #     print(current_state)
-
-    # controller.move_left()
-
-    # next_state = controller.get_state()
-    # print(next_state)
-
-    # controller.terminate()
-
-    for i_episode in range(num_episodes):
+    for i_episode in range(num_episodes):      
+        reset_count = 0
+        stuck_count = 0 
         memory = ReplayMemory()
-
-        current_state = controller.get_state()
+        current_state = controller.get_state(True)
 
         for t_steps in range(num_steps):
+            print()
+            # Reverse until the front sensors are clear when the robot gets stuck
+            if stuck_count > 5:
+                print('Robot is stuck, fixing this now\n')
+                reverse_counter = 0
+                while not front_bool:
+                    if reverse_counter > 6:
+                        break
+                    controller.rob.move(-5, -5, 2000)
+                    state = controller.get_state(False)
+                    _, front_bool, _ = controller.detect_collision(state)
+                    reverse_counter += 1
+                reset_count += 1
+
+            start_position = controller.get_position()
+
             # Select and perform an action
-            action = controller.select_action(target_net, DEVICE, n_actions, current_state, steps_done)
+            action = controller.select_action(target_net, DEVICE, N_ACTIONS, current_state, steps_done)
+            print('action:', action)
 
             controller.take_action(action)
+            end_position = controller.get_position()
             steps_done += 1
-            next_state = controller.get_state()
-            collision = controller.detect_collision(next_state)
+            next_state = controller.get_state(as_tensor=False)
+            collision, front_bool, back_bool = controller.detect_collision(next_state)
+            print('collision:', collision)
+            distance = controller.distance_traveled(start_position, end_position)
+            print('distance traveled', distance)
 
-            reward = controller.get_reward(collision)
-
-            # if collision:
-            #     next_state = None
+            reward = controller.get_reward(collision, distance, action, front_bool, back_bool)
+            print('reward:', reward)
 
             # Store the transition in memory
+            next_state = torch.Tensor(np.asarray(next_state))
             memory.push(current_state, action, next_state, reward)
 
             # Move to the next state
             current_state = next_state
-
-            # print(policy_net, '\n')
-            # print(target_net)
 
             # Perform one step of the optimization (on the policy network)
             policy_net, target_net = optimize_model(
@@ -152,17 +164,27 @@ def main(num_episodes: int, num_steps: int):
                 optimizer=optimizer
             )
 
-            if collision:
-                controller.reset_simulation()
-                break
-
+            if (collision == 3 and back_bool) or distance < 1e-05:
+                stuck_count += 1
+            else:
+                stuck_count = 0
 
         # Update the target network, copying all weights and biases in DQN
         target_net.load_state_dict(policy_net.state_dict())
+        reset_data.append(reset_count)
+
+    fig = plt.figure()
+    plt.plot(reset_data, '.')
+    fig.savefig('./src/figures/resets.png', dpi=fig.dpi)
+
     controller.terminate_simulation()
+
+    PATH = './src/models/'
+    save_model(PATH + 'DQN_policy_v1.pt', policy_net)
+    save_model(PATH + 'DQN_target_v1.pt', target_net)
     
 if __name__ == "__main__":
     # environment = environment_setup()
-    n_episodes = 20
-    n_steps = 100
+    n_episodes = 150
+    n_steps = 50
     main(n_episodes, n_steps)
