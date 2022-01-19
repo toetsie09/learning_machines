@@ -11,7 +11,7 @@ from train_DDPG import RoboboEnv, to_robobo_commands
 from pprint import pprint
 
 
-def eval_controller(env, controller, env_type='simulation', randomize_arena=False, max_steps=500, episodes=10):
+def eval_controller(env, controller, max_steps=500, episodes=10):
     # Define statistics
     collisions = []
     time_to_collision = []
