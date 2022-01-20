@@ -371,9 +371,9 @@ class SimulationRobobo(Robobo):
                 vrep.simxSetObjectPosition(self._clientID, comp, self._Robobo, new_position, vrep.simx_opmode_blocking)
             )
 
-    def randomize_arena(self, x_rng=(-1.8, 0.025), y_rng=(-0.125, 1.725), z=0.25, safe_space=0.4, n_objects=2):
+    def randomize_arena(self, x_rng=(-1.8, 0.025), y_rng=(-0.125, 1.725), z=0.25, safe_space=1.5, n_objects=2):
             # Center of the arena to place robot into
-            center = np.array([np.mean(x_rng), np.mean(y_rng)])
+            center = self.position()[0:1]
 
             placed_objects = []
             obj_names = ['ConcretBlock' + str(i) for i in range(12)]         
@@ -390,20 +390,19 @@ class SimulationRobobo(Robobo):
 
             for object in obj_names[0:n_objects]:
                 valid_pos = False
-                # Place the obstacle somewhere within the arena (but not the center)
                 while not valid_pos:
                     x = np.random.uniform(*x_rng)
                     y = np.random.uniform(*y_rng)
+                    
                     if np.linalg.norm(np.array([x, y]) - center) > safe_space:
-                        if len(placed_objects) == 0:
+                        print('Accepted Dist to robot', np.linalg.norm(np.array([x, y]) - center))
+                        proximity = False
+                        for placed_obj in placed_objects:
+                            print('dist to other pillar', np.linalg.norm(np.array([x, y]) - placed_obj))
+                            if np.linalg.norm(np.array([x, y]) - placed_obj) < 0.8:
+                                proximity = True
+                        if not proximity:
                             valid_pos = True
-                        else:
-                            proximity = False
-                            for placed_obj in placed_objects:
-                                if np.linalg.norm(np.array([x, y]) - placed_obj) < safe_space:
-                                    proximity = True
-                            if not proximity:
-                                valid_pos = True
 
                 r = np.random.uniform(-np.pi, np.pi)
 
@@ -420,5 +419,5 @@ class SimulationRobobo(Robobo):
                     vrep.simxSetObjectOrientation(self._clientID, handle, -1, [0, 0, r],
                                                 vrep.simx_opmode_oneshot)
                 )
-
+                self.wait_for_ping()
                 placed_objects.append(np.asarray([x, y]))

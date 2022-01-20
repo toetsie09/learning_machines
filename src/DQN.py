@@ -5,6 +5,7 @@ import robobo
 import signal
 import sys
 import torch
+import socket
 
 import numpy as np
 from operator import itemgetter 
@@ -15,11 +16,13 @@ from torch import relu, nn
 from robobo.simulation import SimulationRobobo
 
 class Robobo_Controller():
-    def __init__(self) -> SimulationRobobo:
+    def __init__(self, RL=False, address=socket.gethostbyname(socket.gethostname())) -> SimulationRobobo:
         signal.signal(signal.SIGINT, self.terminate_program)
-        self.rob = robobo.SimulationRobobo('#0').connect(address='192.168.192.14', port=19997)
-        self.rob.play_simulation()
-    
+        if RL:
+            self.rob = robobo.HardwareRobobo(camera=False).connect(address=address)
+        else:
+            self.rob = robobo.SimulationRobobo().connect(address, port=19997)
+
     def terminate_program(self, signal_number, frame):
         print("Ctrl-C received, terminating program")
         sys.exit(1)
@@ -58,17 +61,62 @@ class Robobo_Controller():
         filtered_values = itemgetter(*filter)(values)
         return torch.Tensor(np.array(filtered_values)) if as_tensor else filtered_values
 
-    def take_action(self, action: int):
+    def take_action_RL(self, action: int):
         if action == 0: 
-            self.rob.move(5, 10, 1000) # Move left
+            self.rob.move(5, 25, 1000) # Move left
         elif action == 1: 
-            self.rob.move(5, 5, 1000) # Move Forward
+            self.rob.move(10, 5, 500) # Move Forward
         elif action == 2: 
-            self.rob.move(10, 5, 1000) # Move Right
+            self.rob.move(30, 5, 1000) # Move Right
+        # else: 
+        #     self.rob.move(-8, -8, 2000) # Move Reverse
+
+    def take_action_SIM(self, action: int):
+        if action == 0: 
+            self.rob.move(5, 25, 1000) # Move left
+        elif action == 1: 
+            self.rob.move(10, 5, 500) # Move Forward
+        elif action == 2: 
+            self.rob.move(30, 5, 1000) # Move Right
         # else: 
         #     self.rob.move(-8, -8, 2000) # Move Reverse
         
-    def detect_collision(self, state):
+    def detect_collision_RL(self, state):
+        """
+            This function returns multiple types of collisions:
+            Input: 
+                State: List with sensor values [backR, backL, frontRR, frontC, frontLL]
+            Return: 
+                collision_indicator: 0 (no objects in range), 1 (object detected), 2 (object too close)
+                front_bool: boolean that detects if front of robot is clear
+                back_bool: boolean that detects if back of robot is clear
+        """
+        values = [x if x != False else 0.0 for x in state]
+
+        # Process Booleans
+        back_bool = False
+        front_bool = False
+        if min(values[0:2]) <= 0.1:
+            back_bool = True
+        if min(values[-2:]) <= 0.2:
+            front_bool = True
+
+        print('values', values)
+        # Process collision indicator
+        object_distance = max(values)
+        # object_distance = 0.2 if object_distance > 5000 else np.inf
+        if object_distance == 0: 
+            collision_indicator = 0 # Sensors read nothing, no objects nearby
+        elif 50 > object_distance > 0: 
+            collision_indicator = 1 # Objects dected, but not very close yet
+        elif object_distance > 100: 
+            collision_indicator = 3 # Object and Robot collide
+        else:
+            collision_indicator = 2 # Object detected, and getting very close
+
+        return collision_indicator, front_bool, back_bool
+
+    def detect_collision_SIM(self, state):
         """
             This function returns multiple types of collisions:
             Input: 
@@ -83,13 +131,14 @@ class Robobo_Controller():
         # Process Booleans
         back_bool = False
         front_bool = False
-        if min(values[0:2]) >= 0.1:
+        if min(values[0:2]) <= 0.1:
             back_bool = True
-        if min(values[-2:]) >= 0.2:
+        if min(values[-2:]) <= 0.2:
             front_bool = True
 
         # Process collision indicator
         object_distance = min(values)
+        # object_distance = 0.2 if object_distance > 5000 else np.inf
         if object_distance == np.inf: 
             collision_indicator = 0 # Sensors read nothing, no objects nearby
         elif object_distance > 0.1: 
@@ -112,12 +161,12 @@ class Robobo_Controller():
         self.rob.pause_simulation()
         self.rob.stop_world()
     
-    def reset_simulation(self):
+    def reset_arena(self, n_objects=10):
         # DOESNT WORK!
-        self.rob.pause_simulation()
         self.rob.stop_world()
+        self.rob.wait_for_stop()
+        self.rob.randomize_arena(n_objects=n_objects)
         self.rob.play_simulation()
-
 
 class DQN(nn.Module):
     # Neural Network which is going to be used as function approximator as Q*

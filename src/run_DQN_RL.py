@@ -18,7 +18,7 @@ def main(n_episodes=10):
 
     PATH = './src/models/'
 
-    policy_net = load_model(PATH + 'DQN_policy_v1.pt', N_INPUTS, N_ACTIONS, DEVICE)
+    policy_net = load_model(PATH + 'DQN_policy_v2.pt', N_INPUTS, N_ACTIONS, DEVICE)
     # policy_net = load_model(PATH + 'DQN_target_v1.pt', N_INPUTS, N_ACTIONS, DEVICE)
 
     n_collisions = 0
@@ -26,26 +26,26 @@ def main(n_episodes=10):
     current_state = controller.get_state(True)
 
     for i in range(n_episodes):
-        print('state:', current_state)
-        next_action = policy_net.forward(current_state)
+        # print('state:', current_state)
+        next_action = policy_net.forward(current_state).argmax().item()
         print(next_action, next_action.argmax().item())
-        controller.take_action(next_action.argmax().item())
+        controller.take_action_RL(next_action)
         current_state = controller.get_state(False)
-        collision, front_bool, back_bool = controller.detect_collision(current_state)
-        print('collision', collision)
+        # print('state:', current_state)
+        collision, front_bool, back_bool = controller.detect_collision_RL(current_state)
+        # print('collision', collision)
         
-        if collision == 3:
-            break
+        if collision == 3 and not front_bool:
             n_collisions += 1
 
             reverse_counter = 0
             print('Robot collided, fixing this now\n')
             while not front_bool:
-                if reverse_counter > 4:
+                if reverse_counter > 2:
                     break
                 controller.rob.move(-10, -5, 2000)
                 state = controller.get_state(False)
-                _, front_bool, _ = controller.detect_collision(state)
+                _, front_bool, _ = controller.detect_collision_RL(state)
                 reverse_counter += 1
 
         current_state = torch.Tensor(np.asarray(current_state))
