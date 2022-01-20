@@ -31,7 +31,7 @@ class Calibrator:
             returns: ndarray
         """
         ones = np.ones(len(x))
-        return np.array([x, x ** 2, np.exp(x), ones]).T
+        return np.array([x, x ** 2, x ** 3, np.sqrt(x), ones]).T
 
     def fit(self, simulated_dists, hardware_dists):
         """ Fits the model to the hardware sensory data to map them to the
@@ -43,6 +43,10 @@ class Calibrator:
 
             returns: None
         """
+        # Take average of samples within step
+        simulated_dists = np.mean(simulated_dists, axis=1)
+        hardware_dists = np.mean(hardware_dists, axis=1)
+
         # Compute duration multiplier to speed/slow-down hardware robot
         self._multip = len(hardware_dists) / len(simulated_dists)
         print("\nDuration multiplier:", self._multip)
@@ -55,6 +59,7 @@ class Calibrator:
 
         # Fit polynomial to map from hardware signal to simulated signal
         X = self._to_data_matrix(interp_hardware_dists)
+
         y = np.array(simulated_dists)
         self._params = np.linalg.inv(X.T.dot(X)).dot(X.T).dot(y)  # (X^T.X)^-1.X^T.y
         print("Mapping parameters:", self._params)
@@ -94,11 +99,11 @@ if __name__ == "__main__":
     c.fit(simulated_dists, hardware_dists)
     c.save('calib_params.out')
 
-    corrected_dists = c.correct_sensors(hardware_dists)
+    corrected_dists = c.correct_sensors(np.mean(hardware_dists, axis=1))
 
     # Plot results
-    plt.plot(np.linspace(0, 1, len(simulated_dists)), simulated_dists[::-1], c='C4', label='simulated')
-    plt.plot(np.linspace(0, 1, len(hardware_dists)), hardware_dists[::-1], c='C0', label='hardware')
+    plt.plot(np.linspace(0, 1, len(simulated_dists)), np.mean(simulated_dists, axis=1)[::-1], c='C4', label='simulated')
+    plt.plot(np.linspace(0, 1, len(hardware_dists)), np.mean(hardware_dists, axis=1)[::-1], c='C0', label='hardware')
     plt.plot(np.linspace(0, 1, len(corrected_dists)), corrected_dists[::-1], c='C1', label='corrected hardware')
     plt.xlabel('Actual distance to obstacle (base lengths)')
     plt.ylabel('Sensor measurement (a.u.)')
