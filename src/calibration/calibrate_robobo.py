@@ -85,7 +85,7 @@ class Calibrator:
 
             returns: corrected ir-sensor values
         """
-        X = self._to_data_matrix(hardware_values)
+        X = self._to_data_matrix(np.array(hardware_values))
         return X.dot(self._params)
 
 
