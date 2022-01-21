@@ -15,7 +15,7 @@ A simulation should start in V-REP, after which a file `sensor_calib_simulation.
 3. Place robot 1x its own length away from a wall (preferably white like the arena). Make sure the robot faces the wall head-on.
 4. Run `py -3 collect_calibration_data.py`
 
-The Robobo should start to move forward, after which a file `sensor_calib_hardware.out` will be created containing averaged sensory measurements from the robot.
+The Robobo should start to move forward, after which a file `sensor_calib_hardware.out` will be created containing sensory measurements from the robot.
 
 ### Analyze the results
 1. Run `py -3 calibrate_robobo.py`
