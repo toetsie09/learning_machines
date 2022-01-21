@@ -58,7 +58,6 @@ def eval_controller(robot, controller, max_steps=500, episodes=10):
             # Observe sensor state and post-process
             state = robot.get_sensor_state()
             state = ir_to_proximity(state)
-            # state += robot.camera_features()
 
             # Select action greedily (add simulated noise)
             action = controller.select_action(state)
