@@ -52,8 +52,6 @@ def run_controller(robot, controller, calibration, max_steps=500, episodes=10):
             state = ir_to_proximity(state)              # Convert back from simulated range to normalized proximity
             state = state * 1.4                         # Calibrate for brown boxes
 
-            # state += robot.camera_features()
-
             # Select action greedily
             action = controller.select_action(state)
 
