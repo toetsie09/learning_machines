@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 
-from robot_interface import RoboboEnv
+from robobo_interface import SimulatedRobobo
 from DDPG import DDPGAgent
 
 
@@ -16,13 +16,10 @@ def compute_reward(action, collision):
 
         +1   for forward motion
         -1   for turning
-        -100 for front collision
-        -10  for rear collision
+        -100 for collision
     """
-    if collision == 'front':
+    if collision:
         return -100
-    elif collision == 'rear':
-        return -10
 
     forward, turning = action
     return forward - abs(turning)
@@ -45,27 +42,29 @@ def to_robobo_commands(action, forward_drive=10, angular_drive=10):
         commands for the Robobo robot.
     """
     y0, y1 = action
-    z = (y0 + 1) / 2
-    l_drive = z * forward_drive + (1 - z) * y1 * angular_drive
-    r_drive = z * forward_drive - (1 - z) * y1 * angular_drive
-    return l_drive, r_drive
+    left_drive  = y0 * forward_drive + (1 - abs(y0)) * y1 * angular_drive
+    right_drive = y0 * forward_drive - (1 - abs(y0)) * y1 * angular_drive
+    return left_drive, right_drive
 
 
 def train_controller(robot, controller, max_steps, episodes):
     """ Train the Robobo controller in simulation with DDPG.
     """
+    training_rewards = []
+
     for ep in range(episodes):
-        pbar = tqdm(total=max_steps, position=0, desc=str(ep), leave=True)
+        robot.start(randomize_arena=True, hide_render=True)
+
         rewards = []
 
-        robot.start()
-        for step in range(max_steps):
+        for _ in tqdm(range(max_steps)):
             # Observe current state
             state = robot.get_sensor_state()
             state = ir_to_proximity(state)
+            # state += robot.camera_features()
 
-            # Perform action selected with epsilon-greedy
-            eps = 1 - (0.8 * ep / episodes)
+            # Perform action selected with epsilon-greedy (0.9 - 0.1)
+            eps = 0.9 - (0.8 * ep / episodes)
             if np.random.random() < eps:
                 action = np.random.uniform(-1, 1, (2,))   # random
             else:
@@ -85,34 +84,30 @@ def train_controller(robot, controller, max_steps, episodes):
             controller.save_experience(state, action, reward, new_state)
             controller.update()
 
-            if collision is not None:
+            if collision:
                 break
 
-            pbar.set_postfix({'reward': reward})
-            pbar.update(1)
-
-        # End episode
         robot.stop()
-        controller.save_episode_stats()
-        pbar.set_postfix({'avg_reward': np.mean(rewards)})
-        pbar.close()
+
+        # Save rewards accumulated over episode
+        training_rewards.append(rewards)
+
+    return training_rewards
 
 
 if __name__ == "__main__":
-    # untrained controller
-    ddpg_controller = DDPGAgent(num_inputs=8, num_hidden=(24,), num_actions=2,  # forward motion + turning direction
-                                gamma=0.5, actor_lrate=1e-3, critic_lrate=5e-3)
+    # Init controller
+    ddpg_controller = DDPGAgent(layer_shapes=(8, 24, 2), gamma=0.9, actor_lrate=1e-3, critic_lrate=5e-3)
 
-    # define function to save final controller on exit
+    # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
         with open('models/Task1_DDPG.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
-
     signal.signal(signal.SIGINT, save_controller)
 
     # optimize controller with DDPG
-    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='#0', ip='192.168.0.108')  # 192.168.0.108
+    robobo = SimulatedRobobo(ip='192.168.0.108', robot_id='#0')
     train_controller(robobo, ddpg_controller, max_steps=500, episodes=200)
     save_controller()

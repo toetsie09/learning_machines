@@ -7,15 +7,21 @@ from collections import deque
 
 
 class FCNN(nn.Module):
-    def __init__(self, inputs=5, hidden=(), outputs=2, role='actor'):
+    def __init__(self, layer_shapes=(5, 1), activation='linear'):
         super().__init__()
-        self._role = role
-        self._shape = (inputs,) + hidden + (outputs,)
+        # network layers
         self._layers = nn.ModuleList()
-        for i in range(len(self._shape) - 1):
-            in_ = self._shape[i]
-            out = self._shape[i + 1]
-            self._layers.append(nn.Linear(in_, out, bias=True))
+        for i in range(len(layer_shapes) - 1):
+            layer = nn.Linear(layer_shapes[i], layer_shapes[i + 1], bias=True)
+            self._layers.append(layer)
+
+        # activation function
+        if activation == 'linear':
+            self._activation = torch.nn.Identity()
+        elif activation == 'tanh':
+            self._activation = torch.nn.Tanh()
+        else:
+            raise Exception('activation function %s not recognized' % activation)
 
     def copy_weights(self, other):
         for param, param_value in zip(self.parameters(), other.parameters()):
@@ -23,14 +29,10 @@ class FCNN(nn.Module):
         return self
 
     def forward(self, x):
-        # Forward pass through network
-        for layer in self._layers[:-1]:
+        # Forward pass through the network
+        for layer in self._layers[:-1]:  # Intermediate layers
             x = torch.sigmoid(layer(x))
-        out = self._layers[-1](x)
-
-        if self._role == 'actor':
-            out = torch.tanh(out)
-        return out
+        return self._activation(self._layers[-1](x))  # Output layer
 
 
 class ReplayBuffer:
@@ -56,32 +58,27 @@ class ReplayBuffer:
         actions = torch.Tensor(np.array(actions))
         rewards = torch.Tensor(np.array(rewards))
         next_states = torch.Tensor(np.array(next_states))
-
         return states, actions, rewards, next_states
 
 
 class DDPGAgent:
-    def __init__(self, num_inputs=5, num_hidden=(), num_actions=2, actor_lrate=1e-4, critic_lrate=1e-3,
+    def __init__(self, layer_shapes=(5, 2), actor_lrate=1e-4, critic_lrate=1e-3,
                  gamma=0.9, tau=1e-2, max_replay_buffer_size=4096, replay_size=96):
         # Hyper-parameters
-        self._num_inputs = num_inputs
-        self._num_actions = num_actions
         self._gamma = gamma
         self._tau = tau
 
         # Store experience in replay buffer
         self._replay_buffer = ReplayBuffer(max_replay_buffer_size, replay_size)
-        self._rewards = []
-        self._train_ep_reward = []
-        self._train_ep_duration = []
 
         # Actor, Critic and Target networks
-        self._actor = FCNN(num_inputs, num_hidden, num_actions, role='actor')
-        self._actor_target = FCNN(num_inputs, num_hidden, num_actions, role='actor')
+        self._actor = FCNN(layer_shapes, activation='tanh')
+        self._actor_target = FCNN(layer_shapes, activation='tanh')
         self._actor_target.copy_weights(self._actor)
 
-        self._critic = FCNN(num_inputs + num_actions, num_hidden, 1, role='critic')
-        self._critic_target = FCNN(num_inputs + num_actions, num_hidden, 1, role='critic')
+        critic_shape = (layer_shapes[0] + layer_shapes[-1],) + layer_shapes[1:-1] + (1,)
+        self._critic = FCNN(critic_shape, activation='linear')
+        self._critic_target = FCNN(critic_shape, activation='linear')
         self._critic_target.copy_weights(self._critic)
 
         # Losses and optimizers
@@ -126,16 +123,9 @@ class DDPGAgent:
         critic_loss.backward()
         self._critic_optim.step()
 
+        # Weigh target networks
         for target_p, actor_p in zip(self._actor_target.parameters(), self._actor.parameters()):
             target_p.data.copy_(actor_p.data * self._tau + target_p.data * (1.0 - self._tau))
 
         for target_p, critic_p in zip(self._critic_target.parameters(), self._critic.parameters()):
             target_p.data.copy_(critic_p.data * self._tau + target_p.data * (1.0 - self._tau))
-
-    def save_episode_stats(self):
-        self._train_ep_reward.append(np.mean(self._rewards))
-        self._train_ep_duration.append(len(self._rewards))
-        self._rewards = []
-
-    def training_stats(self):
-        return self._train_ep_reward, self._train_ep_duration
