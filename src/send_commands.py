@@ -9,7 +9,7 @@ import cv2
 import sys
 import signal
 import prey
-
+import socket
 
 def terminate_program(signal_number, frame):
     print("Ctrl-C received, terminating program")
@@ -19,7 +19,7 @@ def main():
     signal.signal(signal.SIGINT, terminate_program)
 
     # rob = robobo.HardwareRobobo(camera=True).connect(address="192.168.1.7")
-    rob = robobo.SimulationRobobo().connect(address='192.168.1.6', port=19997)
+    rob = robobo.SimulationRobobo().connect(address=socket.gethostbyname(socket.gethostname()), port=19997)
 
     rob.play_simulation()
 
