@@ -4,7 +4,7 @@ import time
 import vrep
 import cv2
 import numpy as np
-
+from tqdm import tqdm
 class VREPCommunicationError(Exception):
     pass
 
@@ -395,10 +395,10 @@ class SimulationRobobo(Robobo):
                     y = np.random.uniform(*y_rng)
                     
                     if np.linalg.norm(np.array([x, y]) - center) > safe_space:
-                        print('Accepted Dist to robot', np.linalg.norm(np.array([x, y]) - center))
+                        tqdm.write(f'\tAccepted Dist to robot:{  np.linalg.norm(np.array([x, y]) - center)}')
                         proximity = False
                         for placed_obj in placed_objects:
-                            print('dist to other pillar', np.linalg.norm(np.array([x, y]) - placed_obj))
+                            tqdm.write(f'\tdist to other pillar :{ np.linalg.norm(np.array([x, y]) - placed_obj)}')
                             if np.linalg.norm(np.array([x, y]) - placed_obj) < 0.8:
                                 proximity = True
                         if not proximity:
