@@ -33,7 +33,7 @@ class DQNAgent():
         self._memory = ReplayMemory(4096)
 
         # Losses and optimizers
-        self._critic_loss = nn.SmoothL1Loss()
+        self._criterion = nn.SmoothL1Loss()
         self._optimizer = optim.RMSprop(self._policy_network.parameters())
 
     def optimize_model(self, batch_size=96):
