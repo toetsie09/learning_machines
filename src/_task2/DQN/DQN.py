@@ -73,10 +73,8 @@ class DQNAgent():
     def select_action(self, current_episode, total_episodes, state):
         eps = 1 - (0.8 * current_episode / total_episodes)
         if random.random() <= eps:  # Random action (explore)
-            print('Random Action')
             return torch.tensor([[random.randrange(self._n_outputs)]])
         else: # Best action (exploit)
-            print('Best action')
             with torch.no_grad():
                 return self._policy_network(torch.tensor(state)).argmax().view(1,1)
         

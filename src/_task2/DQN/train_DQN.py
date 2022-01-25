@@ -1,4 +1,4 @@
-import tqdm
+from tqdm import tqdm
 import numpy as np
 import torch
 import sys, os
@@ -35,7 +35,7 @@ def ir_to_proximity(sim_sensor_dists, d_max=0.2):
 
 def train_controller(robot, controller, n_episodes=200, n_steps=50):
     for i_episode in range(n_episodes):
-        # pbar = tqdm(total=n_steps, position=0, desc=str(i_episode), leave=True)
+        pbar = tqdm(total=n_steps, position=0, desc=f'Current episode: {i_episode}', leave=True)
         rewards = []
 
         robot.start()
@@ -52,35 +52,35 @@ def train_controller(robot, controller, n_episodes=200, n_steps=50):
             collision = 0 if collision == False else 1 # Temporary
             
             reward = compute_reward(collision)
-            rewards.append(reward)  
+            rewards.append(reward.item())  
 
-            print(f'Take action {action}, collision: {collision} and reward: {reward}')
+            # print(f'Take action {action}, collision: {collision} and reward: {reward}')
             
             controller._memory.push(torch.tensor(state), action, torch.tensor(next_state), reward)
             controller.optimize_model()
-            print('Updated the networks')
+            # print('Updated the networks')
 
             if collision == 1:
                 break
 
-            # pbar.set_postfix({'reward': reward})
-            # pbar.update(1)
+            pbar.set_postfix({'reward': reward.item()})
+            pbar.update(1)
 
         robot.stop()
-        # pbar.set_postfix({'avg_reward': np.mean(rewards)})
-        # pbar.close()
+        pbar.set_postfix({'avg_reward': np.mean(rewards)})
+        pbar.close()
 
         if i_episode % 2 == 0:
             controller._target_network.load_state_dict(controller._policy_network.state_dict())
-            print('Overwriting the target network')
+            # print('Overwriting the target network')
             controller.save_models('./src/models/', name='test')
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='simulation', robot_id='#0', ip='192.168.192.14', hide_render=False, camera=True)  # 192.168.192.14 - Sander
+    robobo = RoboboEnv(env_type='simulation', robot_id='#0', ip='192.168.192.14', hide_render=False, camera=False)  # 192.168.192.14 - Sander
 
     # Initialize controller
-    DQN_controller = DQNAgent(n_inputs=5, n_hidden=24, n_outputs=4, gamma=0.5)
+    DQN_controller = DQNAgent(n_inputs=5, n_hidden=24, n_outputs=4, gamma=0.6)
 
     # Train controller
     train_controller(robobo, DQN_controller, n_episodes=200, n_steps=50)
