@@ -45,8 +45,8 @@ class DQNAgent():
         batch = Transition(*zip(*transitions))
 
         # Concatenate the current states, actions and rewards
-        state_batch = torch.cat(batch.state)
-        next_states = torch.cat(batch.next_state)
+        state_batch = torch.cat(batch.state).reshape(batch_size, self._n_inputs)
+        next_states = torch.cat(batch.next_state).reshape(batch_size, self._n_inputs)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
