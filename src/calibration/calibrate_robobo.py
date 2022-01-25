@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-
+from tqdm import tqdm
 
 class Calibrator:
     """ Implements a calibration model (y = a*x + b*x^2 + c*e^x + d) to
@@ -13,10 +13,12 @@ class Calibrator:
         self._params = None
 
         if param_file != '' and os.path.isfile(param_file):
+            #tqdm.write(f"loading calibration model from: {param_file}")
             data = np.loadtxt(param_file)
             self._multip = data[0]
             self._params = data[1:]
-
+        else:
+            tqdm.write(f"WARNING:\tSKIPPED loading calibration model {param_file}")
     @property
     def duration_multiplier(self):
         return self._multip
@@ -86,6 +88,8 @@ class Calibrator:
             returns: corrected ir-sensor values
         """
         X = self._to_data_matrix(np.array(hardware_values))
+        if self._params is None:
+            raise Exception('Lets fit the calibration model first shall we?')
         return X.dot(self._params)
 
 
