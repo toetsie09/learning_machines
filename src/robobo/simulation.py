@@ -454,6 +454,61 @@ class SimulationRobobo(Robobo):
             # Store handles of the food for fast querying later
             self._foods.append([np.array([x, y]), handle, 'on_ground'])
 
+    def randomize_food_margin(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), z=0.05, safe_space=0.8, n_objects=7):
+            # Center of the arena to place robot into
+            center = self.position()[0:1]
+
+            placed_objects = []
+
+            obj_names = ['Food']  
+            for i in range(6):
+                obj_names.append('Food' + str(i))   
+
+            # Remove all objects from the arena
+            for object in obj_names:
+                handle = self._vrep_get_object_handle(object, vrep.simx_opmode_blocking)
+
+                # randomize position
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectPosition(self._clientID, handle, -1, [-5, 0, z],
+                                            vrep.simx_opmode_oneshot)
+                )             
+
+            for object in obj_names[0:n_objects]:
+                valid_pos = False
+                counter = 0
+                while not valid_pos:
+                    if counter > 50:
+                        return placed_objects
+                    x = np.random.uniform(*x_rng)
+                    y = np.random.uniform(*y_rng)
+                    proximity = False
+                    if np.linalg.norm(np.array([x, y]) - center) > safe_space:
+                        for placed_obj in placed_objects:
+                            if np.linalg.norm(np.array([x, y]) - placed_obj) < (safe_space * 0.75):
+                                proximity = True
+                        if not proximity:
+                            valid_pos = True
+                    counter += 1
+
+                r = np.random.uniform(-np.pi, np.pi)
+
+                # Get handle from V-REP
+                handle = self._vrep_get_object_handle(object, vrep.simx_opmode_blocking)
+
+                # randomize position
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectPosition(self._clientID, handle, -1, [x, y, z],
+                                            vrep.simx_opmode_oneshot)
+                )
+                # randomize orientation
+                vrep.unwrap_vrep(
+                    vrep.simxSetObjectOrientation(self._clientID, handle, -1, [0, 0, r],
+                                                vrep.simx_opmode_oneshot)
+                )
+                self.wait_for_ping()
+                placed_objects.append(np.asarray([x, y]))
+                
     def found_food(self, d_max):
         # Get position of Robobo
         robobo_xy = np.array(self.position())[:2]

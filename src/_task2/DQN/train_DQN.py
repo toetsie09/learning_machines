@@ -2,10 +2,10 @@ from multiprocessing.dummy import current_process
 from tqdm import tqdm
 import numpy as np
 import torch
-import sys, os
+import pickle
 import cv2
 
-from robot_interface import RoboboEnv
+from robot_interface_DQN import RoboboEnv
 from DQN import DQNAgent
 
 FOOD_HSV_MIN = (36, 0, 0)
@@ -47,34 +47,29 @@ def compute_reward(collision, food_collected):
         reward = -1
     return torch.tensor([reward])
 
-def ir_to_proximity(sim_sensor_dists, d_max=0.2):
-    """ Convert distances to proximity values
-    """
-    values = []
-    for d in sim_sensor_dists:
-        if type(d) == bool:
-            values += [0]
-        else:
-            values += [max(0, (d_max - d) / d_max)]
-    return np.array(values)
+def train_controller(robot, controller, n_episodes=100, n_steps=200):
+    overall_rewards = []
+    overall_food = []
+    overall_survive_duration = []
 
-def train_controller(robot, controller, n_episodes=200, n_steps=50):
     for i_episode in range(n_episodes):
         pbar = tqdm(total=n_steps, position=0, desc=f'Current episode: {i_episode}', leave=True)
-        rewards = []
+        rewards_per_episode = []
+        food_per_episode = []
         
-        food_locations = robot.start(safe_space=0.5, n_objects=5)
+        max_food = 7
+        robot.start(0.6, max_food)
         # print('arena started and randomized')
         for i_step in range(n_steps):
             start_collected_food = robot._env.collected_food()
 
-            image = robot.get_front_image()
+            image = robot.take_picture()
             state = identify_food(image)
 
             action = controller.select_action(i_episode, n_episodes, state)
             robot.take_action(action)
 
-            image = robot.get_front_image()
+            image = robot.take_picture()
             next_state = identify_food(image)
             end_collected_food = robot._env.collected_food()
             food_collected = end_collected_food - start_collected_food
@@ -82,34 +77,57 @@ def train_controller(robot, controller, n_episodes=200, n_steps=50):
             collision = robot.has_collided()
             
             reward = compute_reward(collision, food_collected)
-            rewards.append(reward.item())  
+            rewards_per_episode.append(reward.item())  
 
-            if food_collected > 0:
-                print(f'\nCollected food, reward:{reward}')
-            if collision:
-                print(f'\nCollision, reward: {reward}')
-
-
-            # print(f'Take action {action}, collision: {collision} and reward: {reward}')
+            # if food_collected > 0:
+            #     print(f'\nCollected food, reward:{reward}')
+            # if collision:
+            #     print(f'\nCollision, reward: {reward}')
             
             controller._memory.push(torch.tensor(state), action, torch.tensor(next_state), reward)
             controller.optimize_model()
-            # print('Updated the networks')
-
-            if collision == 1:
-                break
 
             pbar.set_postfix({'reward': reward.item()})
             pbar.update(1)
 
+            if collision:
+                overall_survive_duration.append(i_step)
+                break
+
+            if robot._env.collected_food() >= max_food:
+                break
+
+        if not collision:
+            overall_survive_duration.append(n_steps)
+
         robot.stop()
-        pbar.set_postfix({'avg_reward': np.mean(rewards)})
+        pbar.set_postfix({'avg_reward': np.mean(rewards_per_episode)})
         pbar.close()
 
-        if i_episode % 10 == 0:
+        overall_rewards.append(rewards_per_episode)
+        overall_food.append(food_per_episode)
+
+        if i_episode % 5 == 0: # Overwrite the network evert 10 episodes
             controller._target_network.load_state_dict(controller._policy_network.state_dict())
+            controller._target_network.eval()
             # print('Overwriting the target network')
-            controller.save_models('./src/models/', name='test')
+            controller.save_models('./src/_task2/DQN/models/', name='test')
+        
+        if i_episode % 1 == 0:
+            path = './src/_task2/DQN/results/'
+            # Save training stats
+            with open(path + 'DQN_training_rewards_v1.pkl', 'wb') as file:
+                pickle.dump(overall_rewards, file)
+
+            with open(path + 'DQN_training_collected_foods_v1.pkl', 'wb') as file:
+                pickle.dump(overall_food, file)
+
+            with open(path + 'DQN_training_survive_duration_v1.pkl', 'wb') as file:
+                pickle.dump(overall_survive_duration, file)
+        
+        # print('reward', len(overall_rewards))
+        # print('food', len(overall_food))
+        # print('duration', len(overall_survive_duration))
 
 if __name__ == "__main__":
     # Initialize robobo
@@ -120,4 +138,4 @@ if __name__ == "__main__":
     DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4, gamma=0.6)
 
     # Train controller
-    train_controller(robobo, DQN_controller, n_episodes=200, n_steps=500)
+    train_controller(robobo, DQN_controller, n_episodes=50, n_steps=20)

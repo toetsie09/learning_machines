@@ -1,10 +1,8 @@
-import sys, os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import sys
 import robobo
 import signal
 import socket
+import numpy as np
 
 class RoboboEnv:
     def __init__(self, env_type='simulation', ip=socket.gethostbyname(socket.gethostname()), robot_id='', 
@@ -14,7 +12,7 @@ class RoboboEnv:
         if env_type == 'simulation' or env_type == 'randomized_simulation':
             self._env = robobo.SimulationRobobo(robot_id).connect(address=ip, port=19997)
         elif env_type == 'hardware':
-            self._env = robobo.HardwareRobobo(camera=False).connect(address=ip)
+            self._env = robobo.HardwareRobobo(camera=camera).connect(address=ip)
         else:
             raise Exception('env_type %s not supported' % env_type)
 
@@ -31,6 +29,8 @@ class RoboboEnv:
         self._in_simulation = env_type.endswith('simulation')
         self._hide_render = hide_render
 
+        self._env.set_phone_tilt(np.pi/6, 100)
+
     def terminate_program(self, signal_number, frame):
         print("Ctrl-C received, terminating program")
         sys.exit(1)
@@ -39,12 +39,13 @@ class RoboboEnv:
     def in_simulation(self):
         return self._in_simulation
 
-    def start(self):
+    def start(self, safe_space, n_objects):
         """ Start simulation in V-REP """
         if self._in_simulation:
             # Optionally randomize arena
             if self._randomize_arena:
-                self._env.randomize_arena()
+                self._env.randomize_food_margin(safe_space=safe_space, n_objects=n_objects)
+                # self._env.randomize_food()
 
             # Start simulation in V-REP
             self._env.play_simulation()
@@ -105,3 +106,8 @@ class RoboboEnv:
                 self.move(30, 5) # Move Right
             else:
                 self.move(-10, -5) # Move Backwards
+
+    def take_picture(self):
+        """ Takes a picture with the front facing camera
+        """
+        return self._env.get_image_front()
