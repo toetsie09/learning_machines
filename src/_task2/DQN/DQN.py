@@ -77,11 +77,17 @@ class DQNAgent():
         else: # Best action (exploit)
             with torch.no_grad():
                 return self._policy_network(torch.tensor(state)).argmax().view(1,1)
-        
+
+    def select_best_action(self, state):
+        return self._policy_network.forward(state).argmax().item()
+
     def save_models(self, path, name=''):
         torch.save(self._policy_network.state_dict(), f'{path}DQN_policy_network_{name}.pt')
         torch.save(self._target_network.state_dict(), f'{path}DQN_target_network_{name}.pt')
-
+    
+    def load_models(self, path, name=''):
+        self._policy_network.load_state_dict(torch.load(path))
+        self._policy_network.eval()
 
 
 Transition = namedtuple('Transition',
