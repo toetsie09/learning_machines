@@ -15,18 +15,6 @@ FOOD_HSV_MIN = (36, 0, 0)
 FOOD_HSV_MAX = (86, 255, 255)
 
 
-def ir_to_proximity(sim_sensor_dists, d_max=0.2):
-    """ Convert distances to proximity values
-    """
-    values = []
-    for d in sim_sensor_dists:
-        if type(d) == bool:
-            values += [0]
-        else:
-            values += [max(0, (d_max - d) / d_max)]
-    return np.array(values)
-
-
 def identify_food(img, min_hsv, max_hsv, min_blob_size=8, show=False):
     # Convert to Hue-Saturation-Value (HSV)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
