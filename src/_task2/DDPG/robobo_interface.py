@@ -1,5 +1,6 @@
 import robobo
 import numpy as np
+from os.path import abspath
 
 # Constants
 USED_IR_SENSORS = [0, 2, 3, 5, 7]
@@ -15,6 +16,8 @@ class SimulatedRobobo:
         # Start V-REP simulation (optionally randomize place of food)
         if randomize_food:
             self._env.randomize_food()
+        else:
+            self._env.locate_foods()
         self._env.play_simulation()
 
         # Not rendering saves run time
@@ -24,6 +27,12 @@ class SimulatedRobobo:
         # Set robot to starting position
         self._randomly_rotate()
         self.reset_tilt()
+
+    def load_scene(self, filename):
+        self._env.load_scene(abspath(filename))
+
+    def close_scene(self):
+        self._env.close_scene()
 
     def _randomly_rotate(self):
         turn_dir = np.random.choice([-8, 8])

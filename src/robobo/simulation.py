@@ -41,6 +41,16 @@ class SimulationRobobo(Robobo):
         vrep.unwrap_vrep(
             vrep.simxFinish(self._clientID)
         )
+        
+    def load_scene(self, filename):
+        vrep.unwrap_vrep(
+            vrep.simxLoadScene(self._clientID, filename, 0xFF, vrep.simx_opmode_blocking)
+        )
+
+    def close_scene(self):
+        vrep.unwrap_vrep(
+            vrep.simxCloseScene(self._clientID, vrep.simx_opmode_blocking)
+        )
 
     def initialize_handles(self):
         self._RightMotor = self._vrep_get_object_handle('Right_Motor{}'.format(self._value_number), vrep.simx_opmode_blocking)
