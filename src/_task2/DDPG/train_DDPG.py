@@ -75,19 +75,29 @@ def compute_reward(collision, hit_food):
     return -1
 
 
-def train_controller(robot, controller, max_steps, episodes):
+def train_controller(robot, controller, max_steps, episodes, valid_every):
     """ Train the Robobo controller in simulation with DDPG.
     """
     training_rewards = []
     training_collected_foods = []
+    valid_rewards = []
+    valid_collected_foods = []
 
-    for ep in range(episodes):
+    for ep in range(episodes + episodes // valid_every):
         pbar = tqdm(total=max_steps, position=0, desc=str(ep), leave=True)
         rewards = []
         food_collected = 0
 
+        # To validate or not to validate?
+        if ep % valid_every == 0:
+            robot.load_scene('robobo_sparse_food_arena.ttt')
+            is_val = True
+        else:
+            robot.load_scene('robobo_food_arena.ttt')
+            is_val = False
+
         # Start episode!
-        robot.start(randomize_food=True, hide_render=True)
+        robot.start(randomize_food=not is_val, hide_render=True)
 
         # Observe current state
         state = identify_food(robot.take_picture(), FOOD_HSV_MIN, FOOD_HSV_MAX)
@@ -114,9 +124,10 @@ def train_controller(robot, controller, max_steps, episodes):
             reward = compute_reward(collision, found_food)
             rewards.append(reward)
 
-            # learn from reward
-            controller.save_experience(state, action, reward, new_state)
-            controller.update()
+            # learn from reward (during training episodes ofc)
+            if not is_val:
+                controller.save_experience(state, action, reward, new_state)
+                controller.update()
 
             # End episode on collision with walls or when all food is collected
             if (collision and not found_food) or food_collected == 8:
@@ -126,12 +137,18 @@ def train_controller(robot, controller, max_steps, episodes):
             pbar.update(1)
 
         robot.stop()
+        robot.close_scene()
+
         pbar.set_postfix({'avg_reward': np.mean(rewards), 'food_collected': food_collected})
         pbar.close()
 
         # Save stats accumulated over episode
-        training_rewards.append(rewards)
-        training_collected_foods.append(food_collected)
+        if is_val:
+            valid_rewards.append(rewards)
+            valid_collected_foods.append(food_collected)
+        else:
+            training_rewards.append(rewards)
+            training_collected_foods.append(food_collected)
 
     # Save training stats
     with open('training_rewards.pkl', 'wb') as file:
@@ -140,21 +157,27 @@ def train_controller(robot, controller, max_steps, episodes):
     with open('training_collected_foods.pkl', 'wb') as file:
         pickle.dump(training_collected_foods, file)
 
+    with open('valid_rewards.pkl', 'wb') as file:
+        pickle.dump(valid_rewards, file)
+
+    with open('valid_collected_foods.pkl', 'wb') as file:
+        pickle.dump(valid_collected_foods, file)
+
 
 if __name__ == "__main__":
     # Init controller
-    ddpg_controller = DDPGAgent(layer_shapes=(8, 24, 2), gamma=0.99, actor_lrate=1e-3,
+    ddpg_controller = DDPGAgent(layer_shapes=(3, 24, 2), gamma=0.99, actor_lrate=1e-3,
                                 critic_lrate=5e-3, replay_size=96)
 
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task2_DDPG.pkl', 'wb') as file:
+        with open('models/Task2_DDPG_validated.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    train_controller(robobo, ddpg_controller, max_steps=500, episodes=300)
+    train_controller(robobo, ddpg_controller, max_steps=500, episodes=300, valid_every=3)
     save_controller()
