@@ -440,7 +440,10 @@ class SimulationRobobo(Robobo):
             center = self.position()[0:2]
 
             placed_objects = []
-            obj_names = ['Food' + str(i) for i in range(8)]   
+            
+            obj_names = ['Food']
+            for i in range(7):
+                obj_names.append('Food' + str(i))
 
             # Remove all objects from the arena
             for object in obj_names:
