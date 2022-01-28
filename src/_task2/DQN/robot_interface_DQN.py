@@ -6,7 +6,7 @@ import numpy as np
 
 class RoboboEnv:
     def __init__(self, env_type='simulation', ip=socket.gethostbyname(socket.gethostname()), robot_id='', 
-                    used_sensors='5', camera=True, hide_render=True):
+                    used_sensors='5', camera=True, hide_render=True, task=1):
         signal.signal(signal.SIGINT, self.terminate_program)
         # Init simulated or hardware arena
         if env_type == 'simulation' or env_type == 'randomized_simulation':
@@ -28,6 +28,7 @@ class RoboboEnv:
         self._randomize_arena = env_type.startswith('randomized')
         self._in_simulation = env_type.endswith('simulation')
         self._hide_render = hide_render
+        self._task = task
 
         self._env.set_phone_tilt(np.pi/6, 100)
 
@@ -44,7 +45,10 @@ class RoboboEnv:
         if self._in_simulation:
             # Optionally randomize arena
             if self._randomize_arena:
-                self._env.randomize_food_margin(safe_space=safe_space, n_objects=n_objects)
+                if self._task == 1:
+                    self._env.randomize_arena(safe_space=safe_space, n_objects=n_objects)
+                elif self._task == 2:
+                    self._env.randomize_food_margin(safe_space=safe_space, n_objects=n_objects)
                 # self._env.randomize_food()
 
             # Start simulation in V-REP
@@ -63,7 +67,7 @@ class RoboboEnv:
             self._env.stop_world()
             self._env.wait_for_stop()
 
-    @property
+    # @property
     def position(self):
         return self._env.position()
 

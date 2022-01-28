@@ -114,7 +114,7 @@ def train_controller(robot, controller, n_episodes, n_steps, result_path, model_
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=True)
+    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=False, task=2)
 
     # Initialize controller
     DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4, gamma=0.99)
