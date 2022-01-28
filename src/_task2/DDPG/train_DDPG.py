@@ -15,7 +15,7 @@ FOOD_HSV_MIN = (36, 0, 0)
 FOOD_HSV_MAX = (86, 255, 255)
 
 
-def identify_food(img, min_hsv, max_hsv, min_blob_size=8, show=False):
+def identify_food(img, min_hsv, max_hsv, min_blob_size=8):
     # Convert to Hue-Saturation-Value (HSV)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -37,13 +37,6 @@ def identify_food(img, min_hsv, max_hsv, min_blob_size=8, show=False):
     x = int(M["m10"] / M["m00"])
     y = int(M["m01"] / M["m00"])
 
-    if show:
-        # Show preview with x,y pair
-        preview = cv2.merge((mask, mask, mask))
-        preview[int(y)-2:int(y)+2, int(x)-2:int(x)+2] = (255, 0, 0)
-        cv2.imshow('preview', preview)
-        cv2.waitKey(100)
-
     # Normalize x and y relative to image centroid and image width/height
     y_norm = 2 * (y / img.shape[0]) - 1
     x_norm = 2 * (x / img.shape[1]) - 1
@@ -56,15 +49,15 @@ def to_robobo_commands(action, forward_drive=10, angular_drive=5):
     """
     y0, y1 = action
     t = (y0 + 1) / 2
-    left_drive = forward_drive * t + angular_drive * y1   # Changed!
-    right_drive = forward_drive * t - angular_drive * y1  # Changed!
+    left_drive = forward_drive * t + angular_drive * y1
+    right_drive = forward_drive * t - angular_drive * y1
     return left_drive, right_drive
 
 
 def compute_reward(collision, hit_food):
     """ Computes the reward associated with the current state of the environment
 
-        +1000  for collision with a food item
+        +100  for collision with a food item
         -100   for collision with an obstacle/wall
         -1     otherwise (punish robot for being passive)
     """
@@ -80,24 +73,14 @@ def train_controller(robot, controller, max_steps, episodes, valid_every):
     """
     training_rewards = []
     training_collected_foods = []
-    valid_rewards = []
-    valid_collected_foods = []
 
-    for ep in range(episodes + episodes // valid_every):
+    for ep in range(episodes):
         pbar = tqdm(total=max_steps, position=0, desc=str(ep), leave=True)
         rewards = []
         food_collected = 0
 
-        # To validate or not to validate?
-        if ep % valid_every == 0:
-            robot.load_scene('robobo_sparse_food_arena.ttt')
-            is_val = True
-        else:
-            robot.load_scene('robobo_food_arena.ttt')
-            is_val = False
-
         # Start episode!
-        robot.start(randomize_food=not is_val, hide_render=True)
+        robot.start(randomize_food=True, hide_render=True)
 
         # Observe current state
         state = identify_food(robot.take_picture(), FOOD_HSV_MIN, FOOD_HSV_MAX)
@@ -125,9 +108,8 @@ def train_controller(robot, controller, max_steps, episodes, valid_every):
             rewards.append(reward)
 
             # learn from reward (during training episodes ofc)
-            if not is_val:
-                controller.save_experience(state, action, reward, new_state)
-                controller.update()
+            controller.save_experience(state, action, reward, new_state)
+            controller.update()
 
             # End episode on collision with walls or when all food is collected
             if (collision and not found_food) or food_collected == 8:
@@ -137,18 +119,13 @@ def train_controller(robot, controller, max_steps, episodes, valid_every):
             pbar.update(1)
 
         robot.stop()
-        robot.close_scene()
 
         pbar.set_postfix({'avg_reward': np.mean(rewards), 'food_collected': food_collected})
         pbar.close()
 
         # Save stats accumulated over episode
-        if is_val:
-            valid_rewards.append(rewards)
-            valid_collected_foods.append(food_collected)
-        else:
-            training_rewards.append(rewards)
-            training_collected_foods.append(food_collected)
+        training_rewards.append(rewards)
+        training_collected_foods.append(food_collected)
 
     # Save training stats
     with open('training_rewards.pkl', 'wb') as file:
@@ -156,12 +133,6 @@ def train_controller(robot, controller, max_steps, episodes, valid_every):
 
     with open('training_collected_foods.pkl', 'wb') as file:
         pickle.dump(training_collected_foods, file)
-
-    with open('valid_rewards.pkl', 'wb') as file:
-        pickle.dump(valid_rewards, file)
-
-    with open('valid_collected_foods.pkl', 'wb') as file:
-        pickle.dump(valid_collected_foods, file)
 
 
 if __name__ == "__main__":
@@ -172,12 +143,12 @@ if __name__ == "__main__":
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task2_DDPG_validated.pkl', 'wb') as file:
+        with open('models/Task2_DDPG.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    train_controller(robobo, ddpg_controller, max_steps=500, episodes=300, valid_every=3)
+    train_controller(robobo, ddpg_controller, max_steps=300, episodes=100, valid_every=3)
     save_controller()

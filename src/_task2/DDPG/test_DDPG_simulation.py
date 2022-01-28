@@ -46,17 +46,37 @@ def to_robobo_commands(action, forward_drive=10, angular_drive=5):
     """
     y0, y1 = action
     t = (y0 + 1) / 2
-    left_drive = forward_drive * t + angular_drive * y1   # Changed!
-    right_drive = forward_drive * t - angular_drive * y1  # Changed!
+    left_drive = forward_drive * t + angular_drive * y1
+    right_drive = forward_drive * t - angular_drive * y1
     return left_drive, right_drive
+
+
+def compute_reward(collision, hit_food):
+    """ Computes the reward associated with the current state of the environment
+
+        +100   for collision with a food item
+        -100   for collision with an obstacle/wall
+        -1     otherwise (punish robot for being passive)
+    """
+    if hit_food:
+        return 100
+    elif collision:  # (includes the case where there's food but collided at rear)
+        return -100
+    return -1
 
 
 def test_controller(robot, controller, max_steps, episodes):
     """ Train the Robobo controller in simulation with DDPG.
     """
+    episode_rewards = []
+    episode_collected_foods = []
+
     for ep in range(episodes):
+        print(ep)
         # Start episode!
         robot.start(randomize_food=True, hide_render=False)
+
+        rewards = []
         food_collected = 0
 
         for _ in range(max_steps):
@@ -75,11 +95,23 @@ def test_controller(robot, controller, max_steps, episodes):
             collision, hit_food = robot.has_collided()
             food_collected += int(hit_food)
 
+            # Compute reward
+            rewards.append(compute_reward(collision, hit_food))
+
             # End episode on collision
             if (collision and not hit_food) or food_collected == 8:
                 break
 
         robot.stop()
+
+        episode_rewards.append(rewards)
+        episode_collected_foods.append(food_collected)
+
+    with open('DDPG_evaluation_rewards.pkl', 'wb') as file:
+        pickle.dump(episode_rewards, file)
+
+    with open('DDPG_evaluation_collected_foods.pkl', 'wb') as file:
+        pickle.dump(episode_collected_foods, file)
 
 
 if __name__ == "__main__":
@@ -94,4 +126,4 @@ if __name__ == "__main__":
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    test_controller(robobo, ddpg_controller, max_steps=500, episodes=200)
+    test_controller(robobo, ddpg_controller, max_steps=500, episodes=100)

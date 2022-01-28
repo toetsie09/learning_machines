@@ -7,12 +7,10 @@ import signal
 import pickle
 import numpy as np
 
-from tqdm import tqdm
 from robobo_interface import HardwareRobobo
-from calibration.calibrate_robobo import Calibrator
 
 
-FOOD_HSV_MIN = (36, 100, 0)
+FOOD_HSV_MIN = (36, 50, 70)
 FOOD_HSV_MAX = (86, 255, 255)
 
 
@@ -24,7 +22,6 @@ def terminate_program(signal_number, frame):
 def identify_food(img, min_hsv, max_hsv, min_blob_size=8):
     # Convert to Hue-Saturation-Value (HSV)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    img[:, :, 2] = 127  # Get rid of value (luminance invariance)
 
     # Mask out parts of original image that lie in color range
     mask = cv2.inRange(img, min_hsv, max_hsv)
@@ -56,8 +53,8 @@ def to_robobo_commands(action, forward_drive=10, angular_drive=5):
     """
     y0, y1 = action
     t = (y0 + 1) / 2
-    left_drive = forward_drive * t + angular_drive * y1   # Changed!
-    right_drive = forward_drive * t - angular_drive * y1  # Changed!
+    left_drive = forward_drive * t + angular_drive * y1
+    right_drive = forward_drive * t - angular_drive * y1
     return [left_drive, right_drive]
 
 
@@ -89,5 +86,5 @@ if __name__ == "__main__":
         ddpg_controller = pickle.load(file)
 
     # Run controller and print results
-    robobo = HardwareRobobo(ip='192.168.43.248')
+    robobo = HardwareRobobo(ip='192.168.1.114')
     test_controller(robobo, ddpg_controller, max_steps=100, episodes=100)
