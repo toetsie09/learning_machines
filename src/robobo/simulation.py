@@ -1,4 +1,3 @@
-from __future__ import unicode_literals, print_function, absolute_import, division, generators, nested_scopes
 from robobo.base import Robobo
 import time
 import vrep
@@ -383,12 +382,12 @@ class SimulationRobobo(Robobo):
                 vrep.simxSetObjectPosition(self._clientID, comp, self._Robobo, new_position, vrep.simx_opmode_blocking)
             )
 
-    def randomize_arena(self, x_rng=(-1.8, 0.025), y_rng=(-0.125, 1.725), z=0.25, safe_space=1.5, n_objects=2):
+    def randomize_arena(self, x_rng=(-1.8, 0.025), y_rng=(-0.125, 1.725), z=0.25, safe_space=0.5, n_objects=8):
             # Center of the arena to place robot into
-            center = self.position()[0:1]
+            center = self.position()[0:2]
 
             placed_objects = []
-            obj_names = ['ConcretBlock' + str(i) for i in range(12)]         
+            obj_names = ['ConcretBlock' + str(i) for i in range(8)]   
 
             # Remove all objects from the arena
             for object in obj_names:
@@ -398,23 +397,25 @@ class SimulationRobobo(Robobo):
                 vrep.unwrap_vrep(
                     vrep.simxSetObjectPosition(self._clientID, handle, -1, [-5, 0, z],
                                             vrep.simx_opmode_oneshot)
-                )             
+                )        
 
+            self.wait_for_ping()     
+            
             for object in obj_names[0:n_objects]:
                 valid_pos = False
+                counter = 0
                 while not valid_pos:
+                    if counter > 25:
+                        return placed_objects
                     x = np.random.uniform(*x_rng)
                     y = np.random.uniform(*y_rng)
-                    
-                    if np.linalg.norm(np.array([x, y]) - center) > safe_space:
-                        tqdm.write(f'\tAccepted Dist to robot:{  np.linalg.norm(np.array([x, y]) - center)}')
-                        proximity = False
+                    if np.linalg.norm(np.array([x, y]) - np.array(center)) > safe_space:
+                        valid_pos = True
                         for placed_obj in placed_objects:
-                            tqdm.write(f'\tdist to other pillar :{ np.linalg.norm(np.array([x, y]) - placed_obj)}')
-                            if np.linalg.norm(np.array([x, y]) - placed_obj) < 0.8:
-                                proximity = True
-                        if not proximity:
-                            valid_pos = True
+                            if np.linalg.norm(np.array([x, y]) - placed_obj) < (safe_space * 0.75):
+                                valid_pos = False
+                                break
+                    counter += 1
 
                 r = np.random.uniform(-np.pi, np.pi)
 
