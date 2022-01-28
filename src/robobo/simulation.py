@@ -433,36 +433,6 @@ class SimulationRobobo(Robobo):
                 )
                 self.wait_for_ping()
                 placed_objects.append(np.asarray([x, y]))
-                
-    def randomize_food(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), safe_space=0.3):
-        # Center of the arena to place robot into
-        center = np.array([np.mean(x_rng), np.mean(y_rng)])
-
-        foods = ['Food{}'.format(i) for i in range(8)]
-
-        # Reset locations
-        self._foods = []
-
-        for name in foods:
-            # Place object somewhere within the arena (but not the center)
-            x, y = center
-            while np.linalg.norm(np.array([x, y]) - center) < safe_space:
-                x = np.random.uniform(*x_rng)
-                y = np.random.uniform(*y_rng)
-
-            # Determine z-position
-            handle = self._vrep_get_object_handle(name, vrep.simx_opmode_blocking)
-            _, _, z = vrep.unwrap_vrep(
-                vrep.simxGetObjectPosition(self._clientID, handle, -1, vrep.simx_opmode_blocking)
-            )
-
-            # Randomize position of Food1 in OBS_Task2.ttt
-            vrep.unwrap_vrep(
-                vrep.simxSetObjectPosition(self._clientID, handle, -1, [x, y, z], vrep.simx_opmode_oneshot)
-            )
-
-            # Store handles of the food for fast querying later
-            self._foods.append([np.array([x, y]), handle, 'on_ground'])
 
     def randomize_food_margin(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), z=0.05, safe_space=0.8, n_objects=7):
             # Center of the arena to place robot into
@@ -520,6 +490,58 @@ class SimulationRobobo(Robobo):
                 self.wait_for_ping()
                 placed_objects.append(np.asarray([x, y]))
                 
+        def toggle_visualization(self):
+        vrep.unwrap_vrep(
+            vrep.simxSetBooleanParameter(self._clientID, 16, False, vrep.simx_opmode_oneshot)
+        )
+
+    def locate_foods(self):
+        # Reset locations
+        self._foods = []
+
+        for i in range(8):
+            # Identify food by name
+            name = 'Food{}'.format(i)
+
+            # Determine z-position
+            handle = self._vrep_get_object_handle(name, vrep.simx_opmode_blocking)
+            x, y, _ = vrep.unwrap_vrep(
+                vrep.simxGetObjectPosition(self._clientID, handle, -1, vrep.simx_opmode_blocking)
+            )
+
+            # Store handles of the food for fast querying later
+            self._foods.append([np.array([x, y]), handle, 'on_ground'])
+
+    def randomize_food(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), safe_space=0.3):
+        # Center of the arena to place robot into
+        center = np.array([np.mean(x_rng), np.mean(y_rng)])
+
+        foods = ['Food{}'.format(i) for i in range(8)]
+
+        # Reset locations
+        self._foods = []
+
+        for name in foods:
+            # Place object somewhere within the arena (but not the center)
+            x, y = center
+            while np.linalg.norm(np.array([x, y]) - center) < safe_space:
+                x = np.random.uniform(*x_rng)
+                y = np.random.uniform(*y_rng)
+
+            # Determine z-position
+            handle = self._vrep_get_object_handle(name, vrep.simx_opmode_blocking)
+            _, _, z = vrep.unwrap_vrep(
+                vrep.simxGetObjectPosition(self._clientID, handle, -1, vrep.simx_opmode_blocking)
+            )
+
+            # Randomize position of Food1 in OBS_Task2.ttt
+            vrep.unwrap_vrep(
+                vrep.simxSetObjectPosition(self._clientID, handle, -1, [x, y, z], vrep.simx_opmode_oneshot)
+            )
+
+            # Store handles of the food for fast querying later
+            self._foods.append([np.array([x, y]), handle, 'on_ground'])
+
     def found_food(self, d_max):
         # Get position of Robobo
         robobo_xy = np.array(self.position())[:2]
