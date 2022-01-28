@@ -1,3 +1,5 @@
+### TASK 2
+
 import random 
 
 from collections import deque, namedtuple
@@ -74,7 +76,7 @@ class DQNAgent():
         eps = 1 - (0.8 * current_episode / total_episodes)
         if random.random() <= eps:  # Random action (explore)
             return torch.tensor([[random.randrange(self._n_outputs)]])
-        else: # Best action (exploit)
+        else:                       # Best action (exploit)
             with torch.no_grad():
                 return self._policy_network(torch.tensor(state)).argmax().view(1,1)
 
@@ -85,10 +87,9 @@ class DQNAgent():
         torch.save(self._policy_network.state_dict(), f'{path}DQN_policy_network_{name}.pt')
         torch.save(self._target_network.state_dict(), f'{path}DQN_target_network_{name}.pt')
     
-    def load_models(self, path, name=''):
+    def load_models(self, path):
         self._policy_network.load_state_dict(torch.load(path))
         self._policy_network.eval()
-
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))

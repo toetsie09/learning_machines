@@ -434,15 +434,12 @@ class SimulationRobobo(Robobo):
                 self.wait_for_ping()
                 placed_objects.append(np.asarray([x, y]))
 
-    def randomize_food_margin(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), z=0.05, safe_space=0.8, n_objects=7):
+    def randomize_food_margin(self, x_rng=(-4, -2.25), y_rng=(-0.075, 1.675), z=0.05, safe_space=0.8, n_objects=8):
             # Center of the arena to place robot into
             center = self.position()[0:2]
 
             placed_objects = []
-
-            obj_names = ['Food']  
-            for i in range(6):
-                obj_names.append('Food' + str(i))   
+            obj_names = ['Food' + str(i) for i in range(8)]   
 
             # Remove all objects from the arena
             for object in obj_names:
@@ -490,7 +487,7 @@ class SimulationRobobo(Robobo):
                 self.wait_for_ping()
                 placed_objects.append(np.asarray([x, y]))
                 
-        def toggle_visualization(self):
+    def toggle_visualization(self):
         vrep.unwrap_vrep(
             vrep.simxSetBooleanParameter(self._clientID, 16, False, vrep.simx_opmode_oneshot)
         )

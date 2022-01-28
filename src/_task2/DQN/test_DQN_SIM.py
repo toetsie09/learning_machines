@@ -1,3 +1,5 @@
+### TASK 2
+
 import numpy as np
 import torch
 import cv2
@@ -46,26 +48,22 @@ def compute_reward(collision, food_collected):
         reward = -1
     return torch.tensor([reward])
 
-def test_controller(robot, controller, n_episodes=50, n_steps=200):
-    controller.load_models('./src/_task2/DQN/models/', 'DQN_policy_network_test.pt')
-
+def test_controller(robot, controller, n_episodes, n_steps, controller_name, result_path, experiment_name, max_food=8, object_distance=0.5):
+    controller.load_models(controller_name)
+    
     overall_rewards = []
     overall_food = []
-    overall_survive_duration = []
 
-    max_food = 7
     for i_episode in range(n_episodes):
         pbar = tqdm(total=n_steps, position=0, desc=f'Current episode: {i_episode}', leave=True)
-
+        
         rewards_per_episode = []
-
-        robot.start(0.5, max_food)
+        robot.start(object_distance, max_food)
 
         for i_step in range(n_steps):
             start_collected_food = robot._env.collected_food()
             image = robot.take_picture()
-            state = identify_food(image)
-            state = torch.tensor(state)
+            state = torch.tensor(identify_food(image))
             
             action = controller._policy_network.forward(state).argmax().item()
             robot.take_action(action)
@@ -75,21 +73,13 @@ def test_controller(robot, controller, n_episodes=50, n_steps=200):
             collision = robot.has_collided()
             
             reward = compute_reward(collision, food_collected)
-
             rewards_per_episode.append(reward.item())  
 
             pbar.set_postfix({'reward': reward.item()})
             pbar.update(1)
 
-            if collision:
-                overall_survive_duration.append(i_step)
+            if collision or robot._env.collected_food() >= max_food:
                 break
-
-            if robot._env.collected_food() >= max_food:
-                break
-
-        if not collision:
-            overall_survive_duration.append(n_steps)
         
         overall_rewards.append(rewards_per_episode)
         overall_food.append(robot._env.collected_food())
@@ -99,25 +89,26 @@ def test_controller(robot, controller, n_episodes=50, n_steps=200):
         print(rewards_per_episode)
         pbar.close()
     
-        if i_episode % 10 == 0 or i_episode == n_episodes-1:
-            path = './src/_task2/DQN/results/'
-            # Save training stats
-            with open(path + 'DQN_test_rewards_v1.pkl', 'wb') as file:
-                pickle.dump(overall_rewards, file)
+    # Save final testing stats
+    with open(f'{result_path}DQN_test_rewards_{experiment_name}.pkl', 'wb') as file:
+        pickle.dump(overall_rewards, file)
 
-            with open(path + 'DQN_test_collected_foods_v1.pkl', 'wb') as file:
-                pickle.dump(overall_food, file)
-
-            with open(path + 'DQN_test_survive_duration_v1.pkl', 'wb') as file:
-                pickle.dump(overall_survive_duration, file)
+    with open(f'{result_path}DQN_test_collected_foods_{experiment_name}.pkl', 'wb') as file:
+        pickle.dump(overall_food, file)
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=False, camera=True)  # 192.168.192.14 - Sander
+    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=False) 
     print('robot initalized')
 
     # Initialize controller
     DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4)
 
+    result_path = './src/_task2/DQN/results/'
+    controller_name = './src/_task2/DQN/models/DQN_policy_network_test.pt'
+    experiment_name = 'rerun'
+    n_episodes = 50
+    n_steps = 300
+
     # Train controller
-    test_controller(robobo, DQN_controller, n_episodes=50, n_steps=300)
+    test_controller(robobo, DQN_controller, n_episodes, n_steps, controller_name, result_path)

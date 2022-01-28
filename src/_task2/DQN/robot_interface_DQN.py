@@ -90,22 +90,22 @@ class RoboboEnv:
     def take_action(self, action:int, SIM=True):
         if SIM:
             if action == 0: 
-                self.move(5, 10) # Move Left
+                self.move(5, 13) # Move Left
             elif action == 1: 
-                self.move(5, 5) # Move Forwards
+                self.move(10, 10) # Move Forwards
             elif action == 2: 
-                self.move(10, 5) # Move Right
+                self.move(13, 5) # Move Right
             else:
                 self.move(-10, -10) # Move Backwards
         else:
             if action == 0: 
-                self.move(5, 25) # Move Left
+                self.move(10, 25) # Move Left
             elif action == 1: 
-                self.move(10, 5) # Move Forwards
+                self.move(15, 5) # Move Forwards
             elif action == 2: 
-                self.move(30, 5) # Move Right
+                self.move(35, 5) # Move Right
             else:
-                self.move(-10, -5) # Move Backwards
+                self.move(-15, -5) # Move Backwards
 
     def take_picture(self):
         """ Takes a picture with the front facing camera

@@ -1,4 +1,5 @@
-from multiprocessing.dummy import current_process
+### TASK 2
+
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -47,19 +48,15 @@ def compute_reward(collision, food_collected):
         reward = -1
     return torch.tensor([reward])
 
-def train_controller(robot, controller, n_episodes=100, n_steps=200):
+def train_controller(robot, controller, n_episodes, n_steps, result_path, model_path, experiment_name, max_food=8, object_distance=0.5):
     overall_rewards = []
     overall_food = []
-    overall_survive_duration = []
 
     for i_episode in range(n_episodes):
         pbar = tqdm(total=n_steps, position=0, desc=f'Current episode: {i_episode}', leave=True)
         rewards_per_episode = []
-        food_per_episode = []
         
-        max_food = 7
-        robot.start(0.4, max_food)
-        # print('arena started and randomized')
+        robot.start(object_distance, max_food)
         for i_step in range(n_steps):
             start_collected_food = robot._env.collected_food()
 
@@ -78,64 +75,56 @@ def train_controller(robot, controller, n_episodes=100, n_steps=200):
             
             reward = compute_reward(collision, food_collected)
             rewards_per_episode.append(reward.item())  
-
-            # if food_collected > 0:
-            #     print(f'\nCollected food, reward:{reward}')
-            # if collision:
-            #     print(f'\nCollision, reward: {reward}')
-            
+           
             controller._memory.push(torch.tensor(state), action, torch.tensor(next_state), reward)
             controller.optimize_model()
 
             pbar.set_postfix({'reward': reward.item()})
             pbar.update(1)
 
-            if collision:
-                overall_survive_duration.append(i_step)
+            if collision or robot._env.collected_food() >= max_food:
                 break
 
-            if robot._env.collected_food() >= max_food:
-                break
-
-        if not collision:
-            overall_survive_duration.append(n_steps)
+        overall_rewards.append(rewards_per_episode)
+        overall_food.append(robot._env.collected_food())
 
         robot.stop()
         pbar.set_postfix({'avg_reward': np.mean(rewards_per_episode)})
         pbar.close()
 
-        overall_rewards.append(rewards_per_episode)
-        overall_food.append(food_per_episode)
-
-        if i_episode % 10 == 0: # Overwrite the network evert 10 episodes
+        if i_episode % 10 == 0: # Update the target network every 10 episodes
             controller._target_network.load_state_dict(controller._policy_network.state_dict())
             controller._target_network.eval()
-            # print('Overwriting the target network')
-            controller.save_models('./src/_task2/DQN/models/', name='test')
-        
-        if i_episode % 30 == 0:
-            path = './src/_task2/DQN/results/'
-            # Save training stats
-            with open(path + 'DQN_training_rewards_v1.pkl', 'wb') as file:
+            
+        if i_episode % 30 == 0: # Save intermediate training stats every 30 episodes
+            controller.save_models(model_path, name=experiment_name)
+            with open(f'{result_path}DQN_training_rewards_{experiment_name}.pkl', 'wb') as file:
                 pickle.dump(overall_rewards, file)
 
-            with open(path + 'DQN_training_collected_foods_v1.pkl', 'wb') as file:
+            with open(f'{result_path}DQN_training_collected_foods_{experiment_name}.pkl', 'wb') as file:
                 pickle.dump(overall_food, file)
-
-            with open(path + 'DQN_training_survive_duration_v1.pkl', 'wb') as file:
-                pickle.dump(overall_survive_duration, file)
         
-        # print('reward', len(overall_rewards))
-        # print('food', len(overall_food))
-        # print('duration', len(overall_survive_duration))
+    # Save final training stats
+    controller.save_models(model_path, name=experiment_name)
+    with open(f'{result_path}DQN_training_rewards_{experiment_name}.pkl', 'wb') as file:
+        pickle.dump(overall_rewards, file)
+
+    with open(f'{result_path}DQN_training_collected_foods_{experiment_name}.pkl', 'wb') as file:
+        pickle.dump(overall_food, file)
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', ip='192.168.192.14', hide_render=False, camera=True)  # 192.168.192.14 - Sander
-    print('robot initalized')
+    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=True)
 
     # Initialize controller
-    DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4, gamma=0.6)
+    DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4, gamma=0.99)
+
+    # Set variables for training
+    result_path = './src/_task2/DQN/results/'
+    model_path = './src/_task2/DQN/models/'
+    experiment_name = 'rerun'
+    n_episodes = 300
+    n_steps = 500
 
     # Train controller
-    train_controller(robobo, DQN_controller, n_episodes=300, n_steps=500)
+    train_controller(robobo, DQN_controller, n_episodes, n_steps, result_path, model_path, experiment_name)

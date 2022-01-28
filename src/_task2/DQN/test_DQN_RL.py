@@ -35,25 +35,23 @@ def identify_food(img, min_hsv=FOOD_HSV_MIN, max_hsv=FOOD_HSV_MAX):
     x_norm = 2 * (x / img.shape[1]) - 1
     return np.array([0, x_norm, y_norm])
 
-def test_controller(robot, controller, n_episodes=100):
-    controller.load_models('./src/_task2/DQN/models/', 'DQN_policy_network_test.pt')
+def test_controller(robot, controller, controller_path):
+    controller.load_models(controller_path)
 
-    for i_episode in range(n_episodes):
+    while True:
         image = robot.take_picture()
-        state = identify_food(image)
-        state = torch.tensor(state)
-        
+        state = torch.tensor(identify_food(image))
         action = controller._policy_network.forward(state).argmax().item()
-        
-        robot.take_action(action)
+        robot.take_action(action, SIM=False)
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='hardware', robot_id='', ip='192.168.120.206', hide_render=False, camera=True)  # 192.168.192.14 - Sander
-    print('robot initalized')
+    robobo = RoboboEnv(env_type='hardware', robot_id='', camera=True)
 
     # Initialize controller
-    DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4, gamma=0.6)
+    DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4)
+
+    controller_path = './src/_task2/DQN/models/DQN_policy_network_test.pt'
 
     # Train controller
-    test_controller(robobo, DQN_controller, n_episodes=300)
+    test_controller(robobo, DQN_controller, controller_path)
