@@ -98,17 +98,16 @@ def test_controller(robot, controller, n_episodes, n_steps, controller_name, res
 
 if __name__ == "__main__":
     # Initialize robobo
-    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=False) 
-    print('robot initalized')
+    robobo = RoboboEnv(env_type='randomized_simulation', robot_id='', hide_render=False, task=2) 
 
     # Initialize controller
     DQN_controller = DQNAgent(n_inputs=3, n_hidden=24, n_outputs=4)
 
     result_path = './src/_task2/DQN/results/'
-    controller_name = './src/_task2/DQN/models/DQN_policy_network_test.pt'
+    controller_name = './src/_task2/DQN/models/DQN_policy_network_rerun.pt'
     experiment_name = 'rerun'
     n_episodes = 50
     n_steps = 300
 
     # Train controller
-    test_controller(robobo, DQN_controller, n_episodes, n_steps, controller_name, result_path)
+    test_controller(robobo, DQN_controller, n_episodes, n_steps, controller_name, result_path, experiment_name)
