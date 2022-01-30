@@ -26,22 +26,21 @@ def compute_reward(collision, distance, action, front_bool):
     if collision:
         return torch.tensor([-100])
 
-    if front_bool: # Reward moving backwards when the front is clear
-        multiplyer = 1.2 if action.item() != 4 else -0.2
-    else:          # Reward moving backwards when the front is obstructed
-        multiplyer = 1.2 if action.item() == 4 else -0.2
-    return torch.tensor([distance * 100 * multiplyer])
+    multiplyer = 1
+    if front_bool: # Penalize moving backwards and reward moving straight when the front is clear
+        multiplyer = 1.2 if action.item() == 1 else -0.2 if action.item() == 4 else 1
 
 def check_front(sensor_dists, d_min=0.08):
     """
-        This function checks if the front of the robot is clear
+        This function return True if the front of the robot is clear
     """
-    for s in sensor_dists:
-        if s <= d_min:
+    for s in sensor_dists[2:]:
+        if s > d_min:
             return False
     return True
 
-def test_controller(robot, controller, n_episodes, n_steps, result_path, model_path, experiment_name, max_objects=8, object_distance=0.5):
+def test_controller(robot, controller, n_episodes, n_steps, controller_name, result_path, experiment_name, max_objects=12, object_distance=0.3):
+    controller.load_models(controller_name)
     overall_rewards = []
     distance_travelled = []
 
@@ -55,21 +54,22 @@ def test_controller(robot, controller, n_episodes, n_steps, result_path, model_p
             state = ir_to_proximity(robot.get_sensor_state())
             front_bool = check_front(state)
 
-            start_position = controller.position()
+            start_position = np.array(robot.position)
 
-            action = controller.select_action(i_episode, n_episodes, state)
+            action = controller._policy_network.forward(torch.tensor(state)).argmax()
             robot.take_action(action)
 
-            end_position = controller.position()
-            distance = np.linalg.norm(start_position, end_position)
+            end_position = np.array(robot.position)
+            distance = np.linalg.norm(start_position - end_position)
             collision = robot.has_collided()
 
             reward = compute_reward(collision, distance, action, front_bool)
+            rewards_per_episode.append(reward.item())
 
             pbar.set_postfix({'reward': reward.item()})
             pbar.update(1)
 
-            positions.append(controller.position())
+            positions.append(robot.position)
 
             if collision:
                 break
@@ -99,10 +99,10 @@ if __name__ == "__main__":
 
     # Set variables for training
     result_path = './src/_task1/DQN/results/'
-    model_path = './src/_task1/DQN/models/'
-    experiment_name = 'rerun'
+    controller_name = './src/_task1/DQN/models/DQN_policy_network_prefer_forwards.pt'
+    experiment_name = 'prefer_forwards'
     n_episodes = 300
     n_steps = 500
 
     # Train controller
-    test_controller(robobo, DQN_controller, n_episodes, n_steps, result_path, model_path, experiment_name)
+    test_controller(robobo, DQN_controller, n_episodes, n_steps, controller_name, result_path, experiment_name)
