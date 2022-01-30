@@ -8,7 +8,7 @@ import numpy as np
 
 from robobo_interface import SimulatedRobobo
 
-# Green base
+# Green lair
 BASE_HSV_MIN = (36, 50, 70)
 BASE_HSV_MAX = (86, 255, 255)
 
@@ -61,15 +61,15 @@ def get_state(robot):
     # Locate Food and Lair objects in camera image
     img = robot.take_picture()
     food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
-    lair = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
+    base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
 
     # Check if some object is in gripper
     obj_in_gripper = in_gripper(robot.get_sensor_state())
 
-    return np.concatenate([food, lair, obj_in_gripper], axis=0)
+    return np.concatenate([food, base, obj_in_gripper], axis=0)
 
 
-def to_robobo_commands(action, forward_drive=10, angular_drive=7):
+def to_robobo_commands(action, forward_drive=8, angular_drive=5):
     """ Take an action and converts it into left/right wheel
         commands for the Robobo robot.
     """
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         sys.exit(1)
     signal.signal(signal.SIGINT, terminate)
 
-    with open('models/Task3_DDPG.pkl', 'rb') as file:
+    with open('models/Task3_DDPG_weighted_reward_deep.pkl', 'rb') as file:
         ddpg_controller = pickle.load(file)
 
     # optimize controller with DDPG

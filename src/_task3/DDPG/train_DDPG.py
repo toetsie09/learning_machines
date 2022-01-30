@@ -71,7 +71,7 @@ def get_state(robot):
     return np.concatenate([food, base, obj_in_gripper], axis=0)
 
 
-def to_robobo_commands(action, forward_drive=10, angular_drive=7):
+def to_robobo_commands(action, forward_drive=8, angular_drive=5):
     """ Take an action and converts it into left/right wheel
         commands for the Robobo robot.
     """
@@ -117,7 +117,7 @@ def train_controller(robot, controller, max_steps, episodes):
 
             # Compute reward as decreased distance between Food, Lair and Robobo
             reward = dist_robot_to_food - new_dist_robot_to_food
-            reward += dist_food_to_base - new_dist_food_to_base
+            reward += 5 * (dist_food_to_base - new_dist_food_to_base)
             rewards.append(reward)
 
             # learn from reward (during training episodes ofc)
@@ -144,18 +144,18 @@ def train_controller(robot, controller, max_steps, episodes):
 
 if __name__ == "__main__":
     # Init controller
-    ddpg_controller = DDPGAgent(layer_shapes=(7, 24, 2), gamma=0.99, actor_lrate=1e-3,
+    ddpg_controller = DDPGAgent(layer_shapes=(7, 24, 8, 2), gamma=0.99, actor_lrate=1e-3,
                                 critic_lrate=5e-3, replay_size=96)
 
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task3_DDPG.pkl', 'wb') as file:
+        with open('models/Task3_DDPG_weighted_reward_deep.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    train_controller(robobo, ddpg_controller, max_steps=100, episodes=200)
+    train_controller(robobo, ddpg_controller, max_steps=70, episodes=300)
     save_controller()
