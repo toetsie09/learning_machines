@@ -15,7 +15,7 @@ class SimulatedRobobo:
         """
         # Start V-REP simulation (optionally randomize place of food)
         if randomize_arena:
-            self._env.randomize_arena()
+            self._env.randomize_arena_task3()
         self._env.play_simulation()
 
         # Not rendering saves run time
