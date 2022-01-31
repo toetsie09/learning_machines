@@ -13,6 +13,9 @@ class SimulationRobobo(Robobo):
         self._value_number = number
         
         self._foods = [] # maintain locations of foods in scene
+        self._food_handle = None
+        self._base_handle = None
+        self._Robobo = None
 
     def connect(self, address='127.0.0.1', port=19999):
         # vrep.simxFinish(-1)  # just in case, close all opened connections
@@ -562,3 +565,50 @@ class SimulationRobobo(Robobo):
                 return True
 
         return False
+    
+    def randomize_arena_task3(self, x_rng=(-3.9, -2.35), y_rng=(0.025, 1.575), safe_space=0.3):
+        self._food_handle = self._place_randomly('Food', x_rng, y_rng, safe_space)
+        self._base_handle = self._place_randomly('Base', x_rng, y_rng, safe_space)
+
+    def _place_randomly(self, name, x_rng, y_rng, safe_space):
+        # Center of the arena to place robot into
+        center = np.array([np.mean(x_rng), np.mean(y_rng)])
+
+        # Place object somewhere within the arena (but not the center)
+        x, y = center
+        while np.linalg.norm(np.array([x, y]) - center) < safe_space:
+            x = np.random.uniform(*x_rng)
+            y = np.random.uniform(*y_rng)
+
+        # Determine z-position
+        handle = self._vrep_get_object_handle(name, vrep.simx_opmode_blocking)
+        _, _, z = vrep.unwrap_vrep(
+            vrep.simxGetObjectPosition(self._clientID, handle, -1, vrep.simx_opmode_blocking)
+        )
+
+        # Randomize position of item in robobo_foraging_arena.ttt
+        vrep.unwrap_vrep(
+            vrep.simxSetObjectPosition(self._clientID, handle, -1, [x, y, z], vrep.simx_opmode_oneshot)
+        )
+        return handle
+
+    def distance_between(self, A, B):
+        handles = {'Food': self._food_handle,
+                   'Base': self._base_handle,
+                   'Robobo': self._Robobo}
+
+        handle1 = handles[A] if A in handles else None
+        handle2 = handles[B] if B in handles else None
+        if handle1 is None or handle2 is None:
+            raise Exception('A handle does not exist')
+
+        # Locate A and B in robobo_foraging_arena.ttt
+        x0, y0, _ = vrep.unwrap_vrep(
+            vrep.simxGetObjectPosition(self._clientID, handle1, -1, vrep.simx_opmode_blocking)
+        )
+
+        x1, y1, _ = vrep.unwrap_vrep(
+            vrep.simxGetObjectPosition(self._clientID, handle2, -1, vrep.simx_opmode_blocking)
+        )
+        # Compute distance
+        return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
