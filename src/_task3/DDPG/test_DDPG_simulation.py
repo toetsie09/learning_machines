@@ -69,7 +69,7 @@ def get_state(robot):
     return np.concatenate([food, base, obj_in_gripper], axis=0)
 
 
-def to_robobo_commands(action, forward_drive=8, angular_drive=5):
+def to_robobo_commands(action, forward_drive=5, angular_drive=3):
     """ Take an action and converts it into left/right wheel
         commands for the Robobo robot.
     """
@@ -100,6 +100,9 @@ def test_controller(robot, controller, max_steps, episodes):
             # Perform action
             robot.move(*to_robobo_commands(action))
 
+            if robot.distance_between('Food', 'Base') < 0.15:
+                break
+
         robot.stop()
 
         # Save stats accumulated over episode
@@ -117,7 +120,7 @@ if __name__ == "__main__":
         sys.exit(1)
     signal.signal(signal.SIGINT, terminate)
 
-    with open('models/Task3_DDPG_weighted_reward_deep.pkl', 'rb') as file:
+    with open('models/Task3_DDPG_weighted_reward_deep_y_normed2.pkl', 'rb') as file:
         ddpg_controller = pickle.load(file)
 
     # optimize controller with DDPG

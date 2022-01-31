@@ -129,6 +129,9 @@ def train_controller(robot, controller, max_steps, episodes):
             dist_food_to_base = new_dist_food_to_base
             pbar.update(1)
 
+            if new_dist_food_to_base < 0.15:
+                break
+
         robot.stop()
 
         pbar.set_postfix({'total_rewards': sum(rewards)})
@@ -144,18 +147,18 @@ def train_controller(robot, controller, max_steps, episodes):
 
 if __name__ == "__main__":
     # Init controller
-    ddpg_controller = DDPGAgent(layer_shapes=(7, 24, 8, 2), gamma=0.99, actor_lrate=1e-3,
+    ddpg_controller = DDPGAgent(layer_shapes=(7, 24, 2), gamma=0.99, actor_lrate=1e-3,
                                 critic_lrate=5e-3, replay_size=96)
 
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task3_DDPG_weighted_reward_deep.pkl', 'wb') as file:
+        with open('models/Task3_DDPG_weighted_reward_deep_y_normed2.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    train_controller(robobo, ddpg_controller, max_steps=70, episodes=300)
+    train_controller(robobo, ddpg_controller, max_steps=100, episodes=300)
     save_controller()
