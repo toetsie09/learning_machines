@@ -387,7 +387,7 @@ class SimulationRobobo(Robobo):
             center = self.position()[0:2]
 
             placed_objects = []
-            obj_names = ['ConcretBlock' + str(i) for i in range(8)]   
+            obj_names = ['ConcretBlock' + str(i) for i in range(12)]   
 
             # Remove all objects from the arena
             for object in obj_names:
@@ -412,7 +412,7 @@ class SimulationRobobo(Robobo):
                     if np.linalg.norm(np.array([x, y]) - np.array(center)) > safe_space:
                         valid_pos = True
                         for placed_obj in placed_objects:
-                            if np.linalg.norm(np.array([x, y]) - placed_obj) < (safe_space * 0.75):
+                            if np.linalg.norm(np.array([x, y]) - placed_obj) < (safe_space * 1.2):
                                 valid_pos = False
                                 break
                     counter += 1
@@ -562,3 +562,13 @@ class SimulationRobobo(Robobo):
                 return True
 
         return False
+
+    def base_position(self):
+        return vrep.unwrap_vrep(
+            vrep.simxGetObjectPosition(self._clientID, self._base, -1, vrep.simx_opmode_blocking)
+        )
+    
+    def base_detects_food(self):
+        detection, _detection_point, _detected_handle, _detected_normal \
+            = self._vrep_read_proximity_sensor(self._base, vrep.simx_opmode_buffer)
+        return bool(detection)
