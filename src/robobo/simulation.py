@@ -577,18 +577,25 @@ class SimulationRobobo(Robobo):
         return bool(detection)
     
     def randomize_arena_task3(self, x_rng=(-3.9, -2.35), y_rng=(0.025, 1.575), safe_space=0.3):
-        self._food_handle = self._place_randomly('Food', x_rng, y_rng, safe_space)
         self._base_handle = self._place_randomly('Base', x_rng, y_rng, safe_space)
-
-    def _place_randomly(self, name, x_rng, y_rng, safe_space):
+        home_loc = vrep.unwrap_vrep(vrep.simxGetObjectPosition(self._clientID, self._base_handle, -1, vrep.simx_opmode_blocking))[0:2]
+        self._food_handle = self._place_randomly('Food', x_rng, y_rng, safe_space, home_loc)
+        
+    def _place_randomly(self, name, x_rng, y_rng, safe_space, home=None):
         # Center of the arena to place robot into
-        center = np.array([np.mean(x_rng), np.mean(y_rng)])
+        center = np.array(self.position())[:2]
+
+        if home == None:
+            home = center
 
         # Place object somewhere within the arena (but not the center)
         x, y = center
-        while np.linalg.norm(np.array([x, y]) - center) < safe_space:
+        valid_pos = False
+        while not valid_pos:
             x = np.random.uniform(*x_rng)
             y = np.random.uniform(*y_rng)
+            if np.linalg.norm(np.array([x, y]) - center) > safe_space and np.linalg.norm(np.array([x, y]) - home) > safe_space:
+                valid_pos = True
 
         # Determine z-position
         handle = self._vrep_get_object_handle(name, vrep.simx_opmode_blocking)

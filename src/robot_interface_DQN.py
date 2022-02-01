@@ -40,7 +40,7 @@ class RoboboEnv:
     def in_simulation(self):
         return self._in_simulation
 
-    def start(self, safe_space, n_objects):
+    def start(self, safe_space, n_objects=8):
         """ Start simulation in V-REP """
         if self._in_simulation:
             # Optionally randomize arena
@@ -50,6 +50,9 @@ class RoboboEnv:
                 elif self._task == 2:
                     self._env.randomize_food_margin(safe_space=safe_space, n_objects=n_objects)
                 # self._env.randomize_food()
+                elif self._task == 3:
+                    self._env.randomize_arena_task3(safe_space=safe_space)
+
 
             # Start simulation in V-REP
             self._env.play_simulation()
@@ -115,3 +118,6 @@ class RoboboEnv:
         """ Takes a picture with the front facing camera
         """
         return self._env.get_image_front()
+
+    def distance_between(self, A, B):
+        return self._env.distance_between(A, B)
