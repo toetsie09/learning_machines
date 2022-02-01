@@ -17,7 +17,7 @@ FOOD_HSV_MIN = [(160, 50, 70), (0, 50, 70)]
 FOOD_HSV_MAX = [(180, 255, 255), (10, 255, 255)]
 
 
-def identify_object(img, min_hsv, max_hsv, min_blob_size=8):
+def identify_object(img, min_hsv, max_hsv, min_blob_size=4):
     # Convert to Hue-Saturation-Value (HSV)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -50,23 +50,13 @@ def identify_object(img, min_hsv, max_hsv, min_blob_size=8):
     return np.array([0, x_norm, y_norm])  # ('found', x, y)
 
 
-def in_gripper(ir_sensors, thres=0.1):
-    value = ir_sensors[3]  # Front-C in reduced sensor array
-    if type(value) != bool and value < thres:
-        return np.array([1])
-    return np.array([0])
-
-
 def get_state(robot):
     # Locate Food and Lair objects in camera image
     img = robot.take_picture()
     food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
     base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
 
-    # Check if some object is in gripper
-    obj_in_gripper = in_gripper(robot.get_sensor_state())
-
-    return np.concatenate([food, base, obj_in_gripper], axis=0)
+    return np.concatenate([food, base], axis=0)
 
 
 def to_robobo_commands(action, forward_drive=5, angular_drive=3):
@@ -100,7 +90,7 @@ def test_controller(robot, controller, max_steps, episodes):
             # Perform action
             robot.move(*to_robobo_commands(action))
 
-            if robot.distance_between('Food', 'Base') < 0.15:
+            if robot.distance_between('Food', 'Base') < 0.1:
                 break
 
         robot.stop()
@@ -120,7 +110,7 @@ if __name__ == "__main__":
         sys.exit(1)
     signal.signal(signal.SIGINT, terminate)
 
-    with open('models/Task3_DDPG_weighted_reward_deep_y_normed2.pkl', 'rb') as file:
+    with open('models/Task3_DDPG_flat_base.pkl', 'rb') as file:
         ddpg_controller = pickle.load(file)
 
     # optimize controller with DDPG

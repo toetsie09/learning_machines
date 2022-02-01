@@ -19,7 +19,7 @@ FOOD_HSV_MIN = [(160, 50, 70), (0, 50, 70)]
 FOOD_HSV_MAX = [(180, 255, 255), (10, 255, 255)]
 
 
-def identify_object(img, min_hsv, max_hsv, min_blob_size=8):
+def identify_object(img, min_hsv, max_hsv, min_blob_size=4):
     # Convert to Hue-Saturation-Value (HSV)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -52,23 +52,12 @@ def identify_object(img, min_hsv, max_hsv, min_blob_size=8):
     return np.array([0, x_norm, y_norm])  # ('found', x, y)
 
 
-def in_gripper(ir_sensors, thres=0.1):
-    value = ir_sensors[3]  # Front-C in reduced sensor array
-    if type(value) != bool and value < thres:
-        return np.array([1])
-    return np.array([0])
-
-
 def get_state(robot):
     # Locate Food and Lair objects in camera image
     img = robot.take_picture()
     food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
     base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
-
-    # Check if some object is in gripper
-    obj_in_gripper = in_gripper(robot.get_sensor_state())
-
-    return np.concatenate([food, base, obj_in_gripper], axis=0)
+    return np.concatenate([food, base], axis=0)
 
 
 def to_robobo_commands(action, forward_drive=8, angular_drive=5):
@@ -107,8 +96,11 @@ def train_controller(robot, controller, max_steps, episodes):
             else:
                 action = controller.select_action(state)
 
+            # Add some noise to simulate actuator imprecision
+            noisy_action = action + np.random.normal(0, 0.1, 2)
+
             # Perform action
-            robot.move(*to_robobo_commands(action))
+            robot.move(*to_robobo_commands(noisy_action))
 
             # observe new state of the world
             new_state = get_state(robot)
@@ -117,7 +109,7 @@ def train_controller(robot, controller, max_steps, episodes):
 
             # Compute reward as decreased distance between Food, Lair and Robobo
             reward = dist_robot_to_food - new_dist_robot_to_food
-            reward += 5 * (dist_food_to_base - new_dist_food_to_base)
+            reward += 3 * (dist_food_to_base - new_dist_food_to_base)
             rewards.append(reward)
 
             # learn from reward (during training episodes ofc)
@@ -129,7 +121,7 @@ def train_controller(robot, controller, max_steps, episodes):
             dist_food_to_base = new_dist_food_to_base
             pbar.update(1)
 
-            if new_dist_food_to_base < 0.15:
+            if new_dist_food_to_base < 0.1:
                 break
 
         robot.stop()
@@ -147,13 +139,13 @@ def train_controller(robot, controller, max_steps, episodes):
 
 if __name__ == "__main__":
     # Init controller
-    ddpg_controller = DDPGAgent(layer_shapes=(7, 24, 2), gamma=0.99, actor_lrate=1e-3,
+    ddpg_controller = DDPGAgent(layer_shapes=(6, 24, 8, 2), gamma=0.99, actor_lrate=1e-3,
                                 critic_lrate=5e-3, replay_size=96)
 
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task3_DDPG_weighted_reward_deep_y_normed2.pkl', 'wb') as file:
+        with open('models/Task3_DDPG_flat_base_noisy.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)

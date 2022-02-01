@@ -28,11 +28,11 @@ class SimulatedRobobo:
 
     def _randomly_rotate(self):
         turn_dir = np.random.choice([-8, 8])
-        duration = np.random.randint(0, 5000)
+        duration = np.random.randint(0, 3000)
         self.move(turn_dir, -turn_dir, duration)
 
     def reset_tilt(self):
-        self._env.set_phone_tilt(0.8, 100)  # tilt it forward
+        self._env.set_phone_tilt(0.5, 100)  # tilt it forward
 
     def stop(self):
         """ Stops simulation in V-REP
