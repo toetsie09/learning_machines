@@ -34,12 +34,12 @@ def identify_object(img, min_hsv, max_hsv, min_blob_size=64):
     # Try to find blobs
     contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     if not len(contours):
-        return mask, np.array([1, 0, 0])  # ('not found', x, y)
+        return np.array([1, 0, 0])  # ('not found', x, y)
 
     # Select largest contour from the mask
     largest_contour = max(contours, key=cv2.contourArea)
     if cv2.contourArea(largest_contour) < min_blob_size:
-        return mask, np.array([1, 0, 0])  # ('not found', x, y)
+        return np.array([1, 0, 0])  # ('not found', x, y)
 
     # Determine center of the blob
     M = cv2.moments(largest_contour)
@@ -49,10 +49,10 @@ def identify_object(img, min_hsv, max_hsv, min_blob_size=64):
     # Normalize x and y relative to image centroid and image width/height
     y_norm = 2 * (y / img.shape[0]) - 1
     x_norm = 2 * (x / img.shape[1]) - 1
-    return mask, np.array([0, x_norm, y_norm])  # ('found', x, y)
+    return np.array([0, x_norm, y_norm])  # ('found', x, y)
 
 
-def show_camera(img, food_mask, base_mask, state):
+def show_camera(img, state):
     h, w, _ = img.shape
 
     # Render identification of food
@@ -70,7 +70,6 @@ def show_camera(img, food_mask, base_mask, state):
     cv2.imshow('preview', img)
     cv2.waitKey(200)
 
-
 def get_state(robot):
     # Locate Food and Lair objects in camera image
     img = robot.take_picture()
@@ -81,12 +80,12 @@ def get_state(robot):
     img = cv2.medianBlur(img, 5)
 
     # Identify state
-    food_mask, food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
-    base_mask, base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
+    food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
+    base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
     state = np.concatenate([food, base], axis=0)
 
     # Preview
-    show_camera(img, food_mask, base_mask, state)
+    show_camera(img, state)
     return state
 
 
@@ -136,5 +135,5 @@ if __name__ == "__main__":
         ddpg_controller = pickle.load(file)
 
     # Run controller and print results
-    robobo = HardwareRobobo(ip='192.168.1.184')
+    robobo = HardwareRobobo(ip='192.168.120.206')
     test_controller(robobo, ddpg_controller, max_steps=100, episodes=100)
