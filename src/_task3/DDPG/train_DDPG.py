@@ -75,10 +75,14 @@ def train_controller(robot, controller, max_steps, episodes):
     """ Train the Robobo controller in simulation with DDPG.
     """
     training_rewards = []
+    training_robot_to_food = []
+    training_food_to_base = []
 
     for ep in range(episodes):
         pbar = tqdm(total=max_steps, position=0, desc=str(ep), leave=True)
-        rewards = []
+        metric_rewards = []
+        metric_robot_to_food = []
+        metric_food_to_base = []
 
         # Start episode!
         robot.start(randomize_arena=True, hide_render=True)
@@ -88,6 +92,9 @@ def train_controller(robot, controller, max_steps, episodes):
         dist_robot_to_food = robot.distance_between('Robobo', 'Food')
         dist_food_to_base = robot.distance_between('Food', 'Base')
 
+        metric_robot_to_food.append(dist_robot_to_food)
+        metric_food_to_base.append(dist_food_to_base)
+
         for _ in range(max_steps):
             # Select action (decrease noise over time)
             eps = 0.9 - (0.8 * ep / episodes)
@@ -96,21 +103,21 @@ def train_controller(robot, controller, max_steps, episodes):
             else:
                 action = controller.select_action(state)
 
-            # Add some noise to simulate actuator imprecision
-            noisy_action = action + np.random.normal(0, 0.1, 2)
-
             # Perform action
-            robot.move(*to_robobo_commands(noisy_action))
+            robot.move(*to_robobo_commands(action))
 
             # observe new state of the world
             new_state = get_state(robot)
             new_dist_robot_to_food = robot.distance_between('Robobo', 'Food')
             new_dist_food_to_base = robot.distance_between('Food', 'Base')
 
+            metric_robot_to_food.append(new_dist_robot_to_food)
+            metric_food_to_base.append(new_dist_food_to_base)
+
             # Compute reward as decreased distance between Food, Lair and Robobo
             reward = dist_robot_to_food - new_dist_robot_to_food
             reward += 3 * (dist_food_to_base - new_dist_food_to_base)
-            rewards.append(reward)
+            metric_rewards.append(reward)
 
             # learn from reward (during training episodes ofc)
             controller.save_experience(state, action, reward, new_state)
@@ -126,15 +133,23 @@ def train_controller(robot, controller, max_steps, episodes):
 
         robot.stop()
 
-        pbar.set_postfix({'total_rewards': sum(rewards)})
+        pbar.set_postfix({'total_rewards': sum(metric_rewards)})
         pbar.close()
 
         # Save stats accumulated over episode
-        training_rewards.append(rewards)
+        training_rewards.append(metric_rewards)
+        training_robot_to_food.append(metric_robot_to_food)
+        training_food_to_base.append(metric_food_to_base)
 
     # Save training stats
     with open('training_rewards.pkl', 'wb') as file:
         pickle.dump(training_rewards, file)
+
+    with open('training_robobo_to_food.pkl', 'wb') as file:
+        pickle.dump(training_robot_to_food, file)
+
+    with open('training_food_to_base.pkl', 'wb') as file:
+        pickle.dump(training_food_to_base, file)
 
 
 if __name__ == "__main__":
@@ -145,7 +160,7 @@ if __name__ == "__main__":
     # Callback function to save controller on exit
     def save_controller(signal_number=None, frame=None):
         print("\nSaving controller!")
-        with open('models/Task3_DDPG_flat_base_noisy.pkl', 'wb') as file:
+        with open('models/Task3_DDPG_final.pkl', 'wb') as file:
             pickle.dump(ddpg_controller, file)
         sys.exit(1)
     signal.signal(signal.SIGINT, save_controller)

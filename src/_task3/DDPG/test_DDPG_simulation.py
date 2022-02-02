@@ -55,11 +55,10 @@ def get_state(robot):
     img = robot.take_picture()
     food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
     base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
-
     return np.concatenate([food, base], axis=0)
 
 
-def to_robobo_commands(action, forward_drive=5, angular_drive=3):
+def to_robobo_commands(action, forward_drive=8, angular_drive=5):
     """ Take an action and converts it into left/right wheel
         commands for the Robobo robot.
     """
@@ -110,7 +109,7 @@ if __name__ == "__main__":
         sys.exit(1)
     signal.signal(signal.SIGINT, terminate)
 
-    with open('models/Task3_DDPG_flat_base.pkl', 'rb') as file:
+    with open('models/Task3_DDPG_final.pkl', 'rb') as file:
         ddpg_controller = pickle.load(file)
 
     # optimize controller with DDPG
