@@ -65,7 +65,7 @@ class HardwareRobobo:
         self.reset_tilt()
 
     def reset_tilt(self):
-        self._env.set_phone_tilt(109, 100)  # tilt it forward
+        self._env.set_phone_tilt(85, 100)  # tilt it forward
 
     def sleep(self, sec):
         """ Halts robot
