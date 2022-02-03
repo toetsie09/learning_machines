@@ -53,8 +53,8 @@ def identify_object(img, min_hsv, max_hsv, min_blob_size=4):
 def get_state(robot):
     # Locate Food and Lair objects in camera image
     img = robot.take_picture()
-    food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=8)
-    base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=8)
+    food = identify_object(img, FOOD_HSV_MIN, FOOD_HSV_MAX, min_blob_size=2)
+    base = identify_object(img, BASE_HSV_MIN, BASE_HSV_MAX, min_blob_size=2)
     return np.concatenate([food, base], axis=0)
 
 
@@ -72,34 +72,73 @@ def to_robobo_commands(action, forward_drive=8, angular_drive=5):
 def test_controller(robot, controller, max_steps, episodes):
     """ Train the Robobo controller in simulation with DDPG.
     """
-    evaluation_rewards = []
+    eval_rewards = []
+    eval_robot_to_food = []
+    eval_food_to_base = []
 
     for ep in range(episodes):
-        rewards = []
+        metric_rewards = []
+        metric_robot_to_food = []
+        metric_food_to_base = []
+        success = 0
 
         # Start episode!
-        robot.start(randomize_arena=True, hide_render=False)
+        robot.start(randomize_arena=True, hide_render=True)
+
+        # Observe current state
+        dist_robot_to_food = robot.distance_between('Robobo', 'Food')
+        dist_food_to_base = robot.distance_between('Food', 'Base')
+
+        metric_robot_to_food.append(dist_robot_to_food)
+        metric_food_to_base.append(dist_food_to_base)
 
         for _ in range(max_steps):
-            # Select action
+            # Observe state
             state = get_state(robot)
-            print(state)
-            action = controller.select_action(state)
+            dist_robot_to_food = robot.distance_between('Robobo', 'Food')
+            dist_food_to_base = robot.distance_between('Food', 'Base')
 
-            # Perform action
+            # Select action
+            action = controller.select_action(state)
             robot.move(*to_robobo_commands(action))
 
-            if robot.distance_between('Food', 'Base') < 0.1:
+            # observe new state of the world
+            new_dist_robot_to_food = robot.distance_between('Robobo', 'Food')
+            new_dist_food_to_base = robot.distance_between('Food', 'Base')
+
+            metric_robot_to_food.append(new_dist_robot_to_food)
+            metric_food_to_base.append(new_dist_food_to_base)
+
+            # Re-compute reward
+            reward = dist_robot_to_food - new_dist_robot_to_food
+            reward += dist_food_to_base - new_dist_food_to_base
+            metric_rewards.append(reward)
+
+            if new_dist_food_to_base < 0.14:
+                success = 1
                 break
 
         robot.stop()
 
+        print("Ep {}: reward={} robot-food={} food-base={} success={}".format(ep,
+                                                                              sum(metric_rewards),
+                                                                              metric_robot_to_food[-1],
+                                                                              metric_food_to_base[-1],
+                                                                              success))
         # Save stats accumulated over episode
-        evaluation_rewards.append(rewards)
+        eval_rewards.append(metric_rewards)
+        eval_robot_to_food.append(metric_robot_to_food)
+        eval_food_to_base.append(metric_food_to_base)
 
     # Save training stats
-    with open('evaluation_rewards.pkl', 'wb') as file:
-        pickle.dump(evaluation_rewards, file)
+    with open('DDPG_evaluation_rewards.pkl', 'wb') as file:
+        pickle.dump(eval_rewards, file)
+
+    with open('DDPG_evaluation_robot_food.pkl', 'wb') as file:
+        pickle.dump(eval_robot_to_food, file)
+
+    with open('DDPG_evaluation_food_base.pkl', 'wb') as file:
+        pickle.dump(eval_food_to_base, file)
 
 
 if __name__ == "__main__":
@@ -109,9 +148,9 @@ if __name__ == "__main__":
         sys.exit(1)
     signal.signal(signal.SIGINT, terminate)
 
-    with open('models/Task3_DDPG_final.pkl', 'rb') as file:
+    with open('models/final/Task3_DDPG_final.pkl', 'rb') as file:
         ddpg_controller = pickle.load(file)
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    test_controller(robobo, ddpg_controller, max_steps=500, episodes=100)
+    test_controller(robobo, ddpg_controller, max_steps=300, episodes=50)
