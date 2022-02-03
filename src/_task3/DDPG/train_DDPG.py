@@ -149,19 +149,19 @@ def train_controller(robot, controller, max_steps, episodes):
         training_food_to_base.append(metric_food_to_base)
 
     # Save training stats
-    #with open('training_rewards.pkl', 'wb') as file:
-    #    pickle.dump(training_rewards, file)
+    with open('training_rewards.pkl', 'wb') as file:
+        pickle.dump(training_rewards, file)
 
-    #with open('training_robot_food.pkl', 'wb') as file:
-    #    pickle.dump(training_robot_to_food, file)
+    with open('training_robot_food.pkl', 'wb') as file:
+        pickle.dump(training_robot_to_food, file)
 
-    #with open('training_food_base.pkl', 'wb') as file:
-    #    pickle.dump(training_food_to_base, file)
+    with open('training_food_base.pkl', 'wb') as file:
+        pickle.dump(training_food_to_base, file)
 
 
 if __name__ == "__main__":
     # Init controller
-    ddpg_controller = DDPGAgent(layer_shapes=(6, 24, 8, 2), gamma=0.99, actor_lrate=1e-3,
+    ddpg_controller = DDPGAgent(layer_shapes=(6, 24, 2), gamma=0.99, actor_lrate=1e-3,
                                 critic_lrate=5e-3, replay_size=96)
 
     # Callback function to save controller on exit
@@ -174,5 +174,5 @@ if __name__ == "__main__":
 
     # optimize controller with DDPG
     robobo = SimulatedRobobo(ip='192.168.1.113', robot_id='')
-    train_controller(robobo, ddpg_controller, max_steps=150, episodes=300)
+    train_controller(robobo, ddpg_controller, max_steps=200, episodes=300)
     save_controller()
