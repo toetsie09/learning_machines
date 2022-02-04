@@ -30,7 +30,7 @@ class RoboboEnv:
         self._hide_render = hide_render
         self._task = task
 
-        self._env.set_phone_tilt(np.pi/6, 100)
+        self._env.set_phone_tilt(90, 100)
 
     def terminate_program(self, signal_number, frame):
         print("Ctrl-C received, terminating program")
